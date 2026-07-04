@@ -23,26 +23,28 @@ La primera vez descarga las imágenes (2–5 min). Verifica que está arriba:
 docker compose ps        # ambos servicios deben decir "running"
 ```
 
-### 2. Vincular tu número de WhatsApp (escanear QR)
+### 2. Vincular tu número de WhatsApp (escanear QR desde ARGUS)
 
-1. Abre en el navegador: **http://localhost:8080/manager**
-2. Ingresa con la API Key: `argus-whatsapp-2026`
-3. Crea una instancia con el nombre exacto: **`argus`**
-   - Channel: **Baileys**
-4. Presiona **Connect / Get QR** — aparece un código QR
-5. En el teléfono del número emisor (+593 96 291 1218):
+1. Abre ARGUS → pestaña **Configuración**
+2. Presiona **📲 Vincular WhatsApp (mostrar QR)** — el QR aparece ahí mismo
+3. En el teléfono del número emisor (+593 96 291 1218):
    **WhatsApp → Ajustes → Dispositivos vinculados → Vincular dispositivo** → escanea el QR
+4. La tarjeta cambia sola a **"✅ ¡WhatsApp vinculado!"**
 
 > El teléfono debe quedar con internet. Si se desvincula, se repite este paso.
+> (El QR se renueva automáticamente cada 20 segundos.)
+
+*Alternativa avanzada:* el panel propio de Evolution está en
+`http://localhost:8080/manager` (API Key: `argus-whatsapp-2026`) — ese panel
+oscuro es software de terceros, **no hace falta usarlo**.
 
 ### 3. Verificar desde ARGUS
 
-1. Abre ARGUS → pestaña **Configuración**
-2. Revisa que estén así (ya vienen prellenados):
+1. En la misma pestaña **Configuración**, revisa que estén así (ya vienen prellenados):
    - `whatsapp_api_url` = `http://localhost:8080`
    - `whatsapp_api_key` = `argus-whatsapp-2026`
    - `whatsapp_instance` = `argus`
-3. Presiona **🔌 Probar conexión** → debe decir **"Conectado ✓"**
+2. Presiona **🔌 Probar conexión** → debe decir **"Conectado ✓"**
 
 ### 4. Enviar
 

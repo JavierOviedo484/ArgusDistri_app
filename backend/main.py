@@ -576,6 +576,76 @@ def probar_whatsapp(db: Session = Depends(get_db)):
     )
 
 
+@app.get("/whatsapp-qr", response_class=HTMLResponse)
+def whatsapp_qr(db: Session = Depends(get_db)):
+    """
+    Muestra el QR para vincular WhatsApp DENTRO de ARGUS (sin usar el
+    manager oscuro de Evolution). Se auto-refresca hasta quedar conectado.
+    """
+    import httpx as _httpx
+    from app.models.configuracion import Configuracion
+    from app.services.whatsapp_sender import probar_conexion
+
+    configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
+    api_url = (configs.get("whatsapp_api_url") or "").rstrip("/")
+    api_key = configs.get("whatsapp_api_key") or ""
+    instancia = (configs.get("whatsapp_instance") or "argus").strip()
+
+    # ¿Ya está conectado? → tarjeta verde y se detiene el auto-refresco
+    estado = probar_conexion(api_url, api_key, instancia)
+    if estado["ok"]:
+        return HTMLResponse(
+            "<div class='card' style='background:#ecfdf5;border-color:#a7f3d0;'>"
+            "<div class='text-sm font-bold' style='color:#047857;'>✅ ¡WhatsApp vinculado!</div>"
+            "<div class='text-xs mt-1' style='color:#059669;'>Ya puedes enviar facturas por WhatsApp desde el Dashboard.</div>"
+            "</div>"
+        )
+
+    if estado["estado"] in ("apagada", "sin_config", "auth"):
+        return HTMLResponse(
+            f"<div class='card' style='background:#fef2f2;border-color:#fecaca;'>"
+            f"<div class='text-xs' style='color:#b91c1c;'>🔴 {estado['mensaje']}</div></div>"
+        )
+
+    # Pedir el QR a Evolution
+    try:
+        resp = _httpx.get(
+            f"{api_url}/instance/connect/{instancia}",
+            headers={"apikey": api_key},
+            timeout=15,
+        )
+        data = resp.json() if resp.status_code in (200, 201) else {}
+    except Exception:
+        data = {}
+
+    b64 = data.get("base64") or ""
+    if not b64:
+        return HTMLResponse(
+            "<div class='card' style='background:#fffbeb;border-color:#fde68a;' "
+            "hx-get='/whatsapp-qr' hx-trigger='load delay:5s' hx-swap='outerHTML'>"
+            "<div class='text-xs' style='color:#92400e;'>⏳ Generando código QR… (se actualiza solo en unos segundos)</div></div>"
+        )
+
+    # Tarjeta con QR — se refresca sola cada 25s (el QR caduca) y detecta la vinculación
+    return HTMLResponse(f"""
+    <div class="card" style="border-color:#a7f3d0;" hx-get="/whatsapp-qr" hx-trigger="every 20s" hx-swap="outerHTML">
+        <div class="flex gap-4 items-center flex-wrap">
+            <img src="{b64}" alt="QR de WhatsApp" style="width:230px;height:230px;border-radius:0.5rem;border:1px solid #e2e8f0;background:white;padding:6px;">
+            <div class="flex-1" style="min-width:220px;">
+                <div class="text-sm font-bold text-slate-700 mb-2">📲 Escanea con el teléfono del número emisor</div>
+                <ol class="text-xs text-slate-500 space-y-1.5 list-decimal ml-4">
+                    <li>Abre <strong>WhatsApp</strong> en el teléfono</li>
+                    <li>Ve a <strong>Ajustes → Dispositivos vinculados</strong></li>
+                    <li>Toca <strong>Vincular un dispositivo</strong></li>
+                    <li>Apunta la cámara a este código</li>
+                </ol>
+                <div class="text-[11px] mt-2.5" style="color:#059669;">El código se renueva solo cada 20 segundos.<br>Al escanearlo, esta tarjeta cambiará a "✅ ¡WhatsApp vinculado!"</div>
+            </div>
+        </div>
+    </div>
+    """)
+
+
 @app.get("/resumen-envio/{canal}", response_class=HTMLResponse)
 def resumen_envio(canal: str, request: Request, db: Session = Depends(get_db)):
     """
