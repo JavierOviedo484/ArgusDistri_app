@@ -28,10 +28,17 @@ DISCLAIMER = (
 )
 
 
-def _normalizar_numero(numero: str) -> str:
+def normalizar_telefono(numero: str) -> str:
     """
-    Deja el número en formato internacional sin '+' (lo que espera Evolution).
-    Casos Ecuador: '0999999999' → '593999999999'; '+593 99...' → '59399...'.
+    Normaliza un número telefónico a formato internacional sin '+' (Ecuador).
+
+    Casos de entrada → salida:
+      '0999999999'      → '593999999999'
+      '+593 99 999 9999' → '593999999999'
+      '0962911218'      → '593962911218'
+      '593999999999'    → '593999999999'  (sin cambios)
+
+    Evolution API espera este formato (código país + número, sin +, sin 0 inicial).
     """
     digitos = "".join(c for c in numero if c.isdigit())
     if digitos.startswith("00"):
@@ -61,7 +68,7 @@ def enviar_whatsapp(
         return {"ok": False, "mensaje": "WhatsApp no configurado — falta URL o API Key de Evolution (pestaña Configuración)"}
 
     instancia = (instance or "argus").strip()
-    numero_limpio = _normalizar_numero(numero)
+    numero_limpio = normalizar_telefono(numero)
     if len(numero_limpio) < 11:
         return {"ok": False, "mensaje": f"Número inválido para WhatsApp: '{numero}' (se esperaba celular con código de país, ej: +593 99 999 9999)"}
 

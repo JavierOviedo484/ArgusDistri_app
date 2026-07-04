@@ -148,11 +148,13 @@ class Matcher:
             and extraido.nombre_colaborador
         ):
             email = extraido.email if extraido.email and extraido.email != "sin correo" else None
+            from app.services.whatsapp_sender import normalizar_telefono as _norm
+            telf = _norm(extraido.telefono) if extraido.telefono else None
             colaborador = Colaborador(
                 identificador=extraido.identificador,
                 nombre=extraido.nombre_colaborador.strip(),
                 email=email,
-                telefono=extraido.telefono or None,
+                telefono=telf,
             )
             self.db.add(colaborador)
             self.db.commit()

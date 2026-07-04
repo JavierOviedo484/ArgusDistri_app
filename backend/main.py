@@ -734,45 +734,67 @@ def enviar_lote_email(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/api/v1/enviar-lote/whatsapp")
 def enviar_lote_whatsapp(request: Request, db: Session = Depends(get_db)):
-    """Envía todas las facturas pendientes por WhatsApp."""
+    """Envía todas las facturas pendientes por WhatsApp (en paralelo para mayor velocidad)."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     from app.models.factura import Factura as FacturaModel
+    from app.models.colaborador import Colaborador as ColaboradorModel
+    from app.models.plantilla import Plantilla
+    from app.models.configuracion import Configuracion
     from app.models.envio import Envio
-    enviados = 0
-    fallidos = 0
-    errores = []
+    from app.services.whatsapp_sender import enviar_whatsapp
+
     facturas = db.query(FacturaModel).filter_by(enviado_whatsapp=False).all()
     if not facturas:
         return HTMLResponse(
             "<div class='text-sm mt-2 text-slate-400'>No hay facturas pendientes de enviar por WhatsApp.</div>"
         )
+
+    plantilla = db.query(Plantilla).filter_by(canal="whatsapp", activo=True).first()
+    configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
+
+    # Preparar datos de cada factura ANTES de los hilos
+    lotes = []
     for factura in facturas:
-        from app.models.colaborador import Colaborador as ColaboradorModel
         colab = db.query(ColaboradorModel).filter_by(identificador=factura.colaborador_id).first()
         if not colab or not colab.telefono:
             continue
-        from app.models.plantilla import Plantilla
-        from app.models.configuracion import Configuracion
-        from app.services.whatsapp_sender import enviar_whatsapp
-        plantilla = db.query(Plantilla).filter_by(canal="whatsapp", activo=True).first()
-        configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
-        cuerpo = plantilla.cuerpo.format(nombre=colab.nombre, periodo=factura.periodo, monto=factura.monto) if plantilla else ""
+        cuerpo = plantilla.cuerpo.format(
+            nombre=colab.nombre, periodo=factura.periodo, monto=factura.monto
+        ) if plantilla else ""
         pdf_path = Path(factura.ruta_pdf) if factura.ruta_pdf else None
-        r = enviar_whatsapp(
-            numero=colab.telefono, mensaje=cuerpo,
-            api_url=configs.get("whatsapp_api_url"),
-            api_key=configs.get("whatsapp_api_key"),
-            instance=configs.get("whatsapp_instance"),
-            adjunto_pdf=pdf_path if pdf_path and pdf_path.exists() else None,
-        )
-        envio = Envio(factura_id=factura.id, canal="whatsapp", destinatario=colab.telefono,
-                      estado="enviado" if r["ok"] else "fallido", error_msg=None if r["ok"] else r["mensaje"])
-        db.add(envio)
-        if r["ok"]:
-            factura.enviado_whatsapp = True
-            enviados += 1
-        else:
-            fallidos += 1
-            errores.append(f"{colab.nombre}: {r['mensaje']}")
+        lotes.append((factura, colab, cuerpo, pdf_path))
+
+    # Enviar en paralelo (máx 4 a la vez)
+    enviados = 0
+    fallidos = 0
+    errores = []
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futuros = {}
+        for factura, colab, cuerpo, pdf_path in lotes:
+            fut = executor.submit(
+                enviar_whatsapp,
+                numero=colab.telefono, mensaje=cuerpo,
+                api_url=configs.get("whatsapp_api_url"),
+                api_key=configs.get("whatsapp_api_key"),
+                instance=configs.get("whatsapp_instance"),
+                adjunto_pdf=pdf_path if pdf_path and pdf_path.exists() else None,
+            )
+            futuros[fut] = (factura, colab)
+
+        for fut in as_completed(futuros):
+            factura, colab = futuros[fut]
+            r = fut.result()
+            envio = Envio(factura_id=factura.id, canal="whatsapp", destinatario=colab.telefono,
+                          estado="enviado" if r["ok"] else "fallido", error_msg=None if r["ok"] else r["mensaje"])
+            db.add(envio)
+            if r["ok"]:
+                factura.enviado_whatsapp = True
+                enviados += 1
+            else:
+                fallidos += 1
+                errores.append(f"{colab.nombre}: {r['mensaje']}")
+
     db.commit()
     return HTMLResponse(_resultado_lote_html(enviados, fallidos, errores), headers={"HX-Trigger": "refrescarFacturas"})
 
