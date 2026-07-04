@@ -1,0 +1,92 @@
+<div id="modal-overlay" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 rounded-xl border border-slate-700 w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl">
+        <!-- Cabecera -->
+        <div class="flex items-center justify-between p-4 border-b border-slate-800">
+            <div>
+                <h3 class="text-lg font-bold text-amber-400">📄 {{ archivo }}</h3>
+                <p class="text-xs text-slate-500">Datos extraídos del PDF</p>
+            </div>
+            <button onclick="cerrarModal()" class="text-slate-500 hover:text-white text-xl leading-none px-2">&times;</button>
+        </div>
+
+        <div class="p-4 space-y-4">
+            {% if error %}
+            <div class="bg-red-900/30 rounded-lg p-4 text-sm text-red-400">
+                ❌ {{ error }}
+            </div>
+            {% else %}
+
+            <!-- Datos extraídos -->
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="bg-slate-800/50 rounded-lg p-3 col-span-2">
+                    <div class="text-[10px] text-slate-500 uppercase">Nombre / Razón Social</div>
+                    <div class="font-medium">{{ nombre or '—' }}</div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-500 uppercase">RUC</div>
+                    <div class="font-medium">{{ identificador or '—' }}</div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-500 uppercase">Periodo</div>
+                    <div class="font-medium">{{ periodo or '—' }}</div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-500 uppercase">Monto</div>
+                    <div class="font-medium text-cyan-400">${{ monto or '—' }}</div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-500 uppercase">Teléfono</div>
+                    <div class="font-medium">{{ telefono or '—' }}</div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3 col-span-2">
+                    <div class="text-[10px] text-slate-500 uppercase">Email</div>
+                    <div class="font-medium">{{ email or '—' }}</div>
+                </div>
+            </div>
+
+            <!-- Botón registrar -->
+            <div class="flex gap-2">
+                <button onclick="registrarColaborador('{{ nombre }}', '{{ identificador }}', '{{ telefono }}', '{{ email }}')"
+                        class="flex-1 bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded text-sm font-medium">
+                    👤 Registrar Colaborador
+                </button>
+            </div>
+            <div id="registro-resultado" class="text-sm"></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function cerrarModal() {
+    const el = document.getElementById('modal-overlay');
+    if (el) el.remove();
+}
+
+function registrarColaborador(nombre, identificador, telefono, email) {
+    fetch('/api/v1/colaboradores', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            identificador: identificador,
+            nombre: nombre,
+            telefono: telefono,
+            email: email
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('registro-resultado').innerHTML =
+                '<div class="text-red-400 text-sm">❌ ' + data.error + '</div>';
+        } else {
+            document.getElementById('registro-resultado').innerHTML =
+                '<div class="text-emerald-400 text-sm">✅ Colaborador registrado. <button onclick="cerrarModal(); location.reload()" class="underline">Re-escanear</button></div>';
+        }
+    })
+    .catch(e => {
+        document.getElementById('registro-resultado').innerHTML =
+            '<div class="text-red-400 text-sm">❌ Error: ' + e.message + '</div>';
+    });
+}
+</script>

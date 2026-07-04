@@ -1,0 +1,67 @@
+<div id="modal-overlay" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 rounded-xl border border-slate-700 w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl">
+        <!-- Cabecera -->
+        <div class="flex items-center justify-between p-4 border-b border-slate-800">
+            <div>
+                <h3 class="text-lg font-bold text-emerald-400">{{ extraido.nombre_colaborador }}</h3>
+                <p class="text-xs text-slate-500">{{ extraido.archivo }}</p>
+            </div>
+            <button onclick="cerrarModal()" class="text-slate-500 hover:text-white text-xl leading-none px-2">&times;</button>
+        </div>
+
+        <div class="p-4 space-y-4">
+            <!-- Datos extraídos -->
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="bg-slate-800/50 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-500 uppercase">RUC</div>
+                    <div class="font-medium">{{ extraido.identificador or '—' }}</div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-500 uppercase">Periodo</div>
+                    <div class="font-medium">{{ extraido.periodo or '—' }}</div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-500 uppercase">Monto</div>
+                    <div class="font-medium text-cyan-400">${{ extraido.monto or '—' }}</div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-500 uppercase">Teléfono</div>
+                    <div class="font-medium">{{ extraido.telefono or '—' }}</div>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3 col-span-2">
+                    <div class="text-[10px] text-slate-500 uppercase">Email</div>
+                    <div class="font-medium">{{ extraido.email or '—' }}</div>
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="flex gap-2">
+                <button hx-post="/api/v1/enviar/email/{{ factura_id }}" hx-target="#envio-resultado" hx-swap="innerHTML"
+                        class="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded text-sm font-medium
+                        {% if not tiene_email %}opacity-40 cursor-not-allowed{% endif %}"
+                        {% if not tiene_email %}disabled{% endif %}>
+                    📧 Enviar por Email
+                </button>
+                <button hx-post="/api/v1/enviar/whatsapp/{{ factura_id }}" hx-target="#envio-resultado" hx-swap="innerHTML"
+                        class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded text-sm font-medium
+                        {% if not tiene_telefono %}opacity-40 cursor-not-allowed{% endif %}"
+                        {% if not tiene_telefono %}disabled{% endif %}>
+                    💬 Enviar por WhatsApp
+                </button>
+            </div>
+            <div id="envio-resultado" class="text-sm"></div>
+
+            <!-- Texto extraído del PDF -->
+            <details class="text-xs text-slate-500">
+                <summary class="cursor-pointer hover:text-slate-300">📄 Ver texto completo extraído del PDF</summary>
+                <pre class="mt-2 bg-slate-950 rounded-lg p-3 overflow-x-auto text-[11px] leading-relaxed max-h-60">{{ texto_pdf }}</pre>
+            </details>
+        </div>
+    </div>
+</div>
+
+<script>
+function cerrarModal() {
+    document.getElementById('modal-overlay').remove();
+}
+</script>

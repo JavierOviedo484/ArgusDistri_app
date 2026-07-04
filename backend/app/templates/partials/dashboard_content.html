@@ -1,0 +1,67 @@
+<div class="max-w-6xl mx-auto">
+    <!-- Selector de carpeta -->
+    <div class="bg-slate-900 rounded-lg border border-slate-800 p-4 mb-6">
+        <div class="flex items-end gap-3">
+            <div class="flex-1">
+                <label class="text-xs text-slate-400 block mb-1">Carpeta de origen (PDFs)</label>
+                <input id="carpeta-input" name="carpeta" type="text"
+                       value="/mnt/c/Users/javie/Desktop/AUTOM/Correos/facturas"
+                       class="w-full bg-slate-800 rounded px-3 py-2 text-sm border border-slate-700 font-mono text-slate-300">
+            </div>
+            <button hx-post="/escaneo-html" hx-include="#carpeta-input" hx-target="#resultados"
+                    hx-swap="innerHTML" hx-indicator="#spinner"
+                    class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded text-sm font-medium">
+                🔍 Escanear
+            </button>
+            <button onclick="borrarTodo()"
+                    class="bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded text-sm font-medium">
+                🗑️ Borrar Todo
+            </button>
+        </div>
+        <p class="text-[10px] text-slate-500 mt-2">Ruta absoluta en Linux (WSL) — ej: /mnt/c/Users/... o ruta local data/pdfs_entrada</p>
+    </div>
+
+    <!-- Barra de acciones masivas (aparece después del escaneo) -->
+    <div id="acciones-masivas" class="hidden mb-4 flex gap-2">
+        <button hx-post="/api/v1/enviar-lote/email" hx-target="#resultado-envio" hx-swap="innerHTML"
+                class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium">
+            📧 Enviar todo por Email
+        </button>
+        <button hx-post="/api/v1/enviar-lote/whatsapp" hx-target="#resultado-envio" hx-swap="innerHTML"
+                class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-medium">
+            💬 Enviar todo por WhatsApp
+        </button>
+    </div>
+
+    <!-- Resultado de envío masivo -->
+    <div id="resultado-envio"></div>
+
+    <!-- Resultados del escaneo -->
+    <div id="resultados">
+        <div class="text-center py-12 text-slate-500">
+            <p class="text-4xl mb-3">📂</p>
+            <p>Selecciona la carpeta y presiona "Escanear"</p>
+        </div>
+    </div>
+
+    <!-- Spinner -->
+    <div id="spinner" class="htmx-indicator text-center py-4">
+        <div class="inline-block animate-spin text-2xl">⏳</div>
+        <p class="text-sm text-slate-400">Procesando...</p>
+    </div>
+</div>
+
+<script>
+// Mostrar acciones masivas después del escaneo
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'resultados') {
+        document.getElementById('acciones-masivas').classList.remove('hidden');
+    }
+});
+
+function borrarTodo() {
+    if (!confirm('⚠️ ¿Estás seguro? Se borrarán todos los colaboradores, facturas y registros de envío. Los PDFs de entrada NO se tocan.')) return;
+    if (!confirm('🔄 ¿Confirmas? Esta acción no se puede deshacer.')) return;
+    htmx.ajax('POST', '/borrar-todo', { target: '#resultados', swap: 'innerHTML' });
+}
+</script>

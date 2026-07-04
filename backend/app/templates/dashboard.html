@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus · Distribuidor de documentos</title>
+    <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/htmx-ext-json-enc@2.0.3/dist/json-enc.js"></script>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="bg-slate-950 text-slate-100" hx-boost="true">
+    <div class="flex h-screen">
+        <!-- ─── Sidebar ─── -->
+        <aside class="sidebar w-56 flex flex-col">
+            <div class="px-4 py-5 border-b border-slate-800">
+                <div class="brand-card">
+                    <img src="/static/logo.svg" alt="Argus" class="brand-logo">
+                </div>
+                <p class="brand-tagline">Distribuidor de documentos</p>
+            </div>
+
+            <!-- Navegación -->
+            <nav class="flex-1 px-2 py-3 space-y-1 text-sm">
+                <a href="/"
+                   class="nav-link tab-link"
+                   data-tab="dashboard">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+                <a href="/colaboradores"
+                   class="nav-link tab-link"
+                   data-tab="colaboradores">
+                    <span class="nav-icon">👥</span> Colaboradores
+                </a>
+                <a href="/plantillas"
+                   class="nav-link tab-link"
+                   data-tab="plantillas">
+                    <span class="nav-icon">💬</span> Plantillas
+                </a>
+                <a href="/config"
+                   class="nav-link tab-link"
+                   data-tab="config">
+                    <span class="nav-icon">⚙️</span> Configuración
+                </a>
+            </nav>
+
+            <!-- Status cards -->
+            <div class="px-3 py-3 border-t border-slate-800">
+                <div id="status-cards" class="space-y-2 text-xs"
+                     hx-get="/status-cards" hx-trigger="load, every 30s" hx-swap="innerHTML">
+                    <div class="animate-pulse text-slate-600">Cargando...</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ─── Contenido principal ─── -->
+        <main id="main-content" class="flex-1 overflow-auto p-6">
+            {{ content | safe }}
+        </main>
+    </div>
+
+<script>
+document.querySelectorAll('.tab-link').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+        e.preventDefault();
+        let url = this.getAttribute('href');
+        fetch(url, { headers: { 'HX-Request': 'true' } })
+            .then(r => r.text())
+            .then(html => {
+                document.getElementById('main-content').innerHTML = html;
+                history.replaceState(null, '', url);
+            });
+        document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+        this.classList.add('active');
+    });
+});
+// Set active tab on load
+(function() {
+    let path = location.pathname;
+    document.querySelectorAll('.tab-link').forEach(function(l) {
+        if (l.getAttribute('href') === path) {
+            l.classList.add('active');
+        }
+    });
+})();
+</script>
+</body>
+</html>

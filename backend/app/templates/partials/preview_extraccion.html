@@ -1,0 +1,71 @@
+<div class="bg-slate-900 border border-cyan-800/50 rounded-lg p-4 space-y-3 relative">
+    <!-- Cabecera -->
+    <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-cyan-400 flex items-center gap-1">
+            📄 {{ archivo }}
+        </h3>
+        <button onclick="this.closest('.preview-panel').innerHTML=''"
+                class="text-slate-500 hover:text-slate-300 text-lg leading-none">&times;</button>
+    </div>
+
+    {% if error %}
+    <div class="text-red-400 text-sm bg-red-900/20 p-3 rounded border border-red-800/50">
+        ❌ {{ error }}
+    </div>
+    {% else %}
+
+    <!-- Datos extraídos -->
+    <div class="grid grid-cols-2 gap-3 text-xs">
+        <div>
+            <span class="text-slate-500">👤 Nombre:</span>
+            <div class="text-white font-medium {% if not nombre %}text-slate-600 italic{% endif %}">
+                {{ nombre or "No identificado" }}
+            </div>
+        </div>
+        <div>
+            <span class="text-slate-500">🆔 RUC:</span>
+            <div class="text-white font-mono">{{ identificador or "—" }}</div>
+        </div>
+        <div>
+            <span class="text-slate-500">📱 Teléfono:</span>
+            <div class="text-white">{{ telefono or "—" }}</div>
+        </div>
+        <div>
+            <span class="text-slate-500">✉️ Email:</span>
+            <div class="text-white">{{ email }}</div>
+        </div>
+        <div>
+            <span class="text-slate-500">📅 Período:</span>
+            <div class="text-white">{{ periodo or "—" }}</div>
+        </div>
+        <div>
+            <span class="text-slate-500">💰 Monto:</span>
+            <div class="text-cyan-400 font-medium">{{ "$" + monto if monto else "—" }}</div>
+        </div>
+    </div>
+
+    <!-- Botón Registrar como colaborador -->
+    <div class="border-t border-slate-800 pt-3">
+        {% if colab_existe %}
+        <div class="text-emerald-400 text-xs flex items-center gap-1">
+            ✅ <strong>{{ nombre }}</strong> ya está registrado como colaborador
+        </div>
+        {% elif nombre %}
+        <form hx-post="/registrar-colaborador-desde-preview" hx-target="closest .preview-panel" hx-swap="innerHTML">
+            <input type="hidden" name="nombre" value="{{ nombre }}">
+            <input type="hidden" name="identificador" value="{{ identificador }}">
+            <input type="hidden" name="telefono" value="{{ telefono }}">
+            <input type="hidden" name="email" value="{{ email }}">
+            <input type="hidden" name="carpeta" value="{{ carpeta }}">
+            <input type="hidden" name="archivos_pendientes" value="">
+            <button type="submit"
+                    class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded font-medium w-full">
+                📋 Registrar "{{ nombre }}" como colaborador
+            </button>
+        </form>
+        {% else %}
+        <div class="text-amber-400 text-xs">⚠️ No se pudo identificar un nombre en este PDF</div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

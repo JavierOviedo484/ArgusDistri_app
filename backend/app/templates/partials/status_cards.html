@@ -1,0 +1,24 @@
+<div class="space-y-2">
+    <a href="#" class="flex items-center gap-2 px-3 py-2 rounded bg-slate-900/50 text-xs">
+        <span class="status-dot w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span class="text-slate-400">Activo</span>
+    </a>
+    <div class="grid grid-cols-2 gap-2">
+        <div class="bg-slate-900 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-brand">{{ pdfs_pendientes }}</div>
+            <div class="text-[10px] text-slate-500 uppercase tracking-wider mt-1">PDFs</div>
+        </div>
+        <div class="bg-slate-900 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-brand">{{ colaboradores }}</div>
+            <div class="text-[10px] text-slate-500 uppercase tracking-wider mt-1">Colabs</div>
+        </div>
+        <div class="bg-slate-900 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-emerald-400">{{ facturas }}</div>
+            <div class="text-[10px] text-slate-500 uppercase tracking-wider mt-1">Facturas</div>
+        </div>
+        <div class="bg-slate-900 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold {% if pendientes > 0 %}text-amber-400{% else %}text-slate-600{% endif %}">{{ pendientes }}</div>
+            <div class="text-[10px] text-slate-500 uppercase tracking-wider mt-1">Pendientes</div>
+        </div>
+    </div>
+</div>

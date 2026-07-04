@@ -1,0 +1,52 @@
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6">
+        <h2 class="text-xl font-bold">Configuración</h2>
+        <p class="text-sm text-slate-400">Datos del remitente y sistema</p>
+    </div>
+
+    <div class="space-y-4">
+        {% for c in configs %}
+        <div class="bg-slate-900 rounded-lg border border-slate-800 p-5">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <label class="text-sm font-medium block">{{ c.descripcion or c.clave }}</label>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider mt-0.5">{{ c.clave }}</p>
+                    <input id="config-{{ c.clave }}" value="{{ c.valor }}"
+                           class="mt-2 w-full bg-slate-800 rounded px-3 py-2 text-sm border border-slate-700 font-mono">
+                </div>
+                <button onclick="guardarConfig('{{ c.clave }}')"
+                        class="btn btn-primary btn-sm ml-4 shrink-0">
+                    Guardar
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="mt-8 bg-slate-900/50 rounded-lg border border-slate-800 p-4">
+        <h3 class="text-sm font-bold mb-2">¿Cómo funciona?</h3>
+        <ul class="text-xs text-slate-400 space-y-1.5">
+            <li>📄 Las facturas se escanean automáticamente de <code class="text-brand">data/pdfs_entrada/</code></li>
+            <li>👥 Se cruza el RUC contra la base de colaboradores</li>
+            <li>💬 Las plantillas definen el texto que se envía por cada canal</li>
+            <li>📤 El envío real (WhatsApp/email) se integra en una próxima versión</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+function guardarConfig(clave) {
+    const valor = document.getElementById('config-' + clave).value;
+    fetch('/api/v1/config/' + clave, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clave: clave, valor: valor }),
+    }).then(r => r.json()).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '✓ Guardado';
+        btn.classList.add('bg-green-600');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('bg-green-600'); }, 2000);
+    });
+}
+</script>
