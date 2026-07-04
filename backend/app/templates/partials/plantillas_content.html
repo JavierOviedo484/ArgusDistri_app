@@ -1,49 +1,48 @@
 <div class="max-w-4xl mx-auto">
     <div class="mb-6">
-        <h2 class="text-xl font-bold">Plantillas de mensajes</h2>
-        <p class="text-sm text-slate-400">Personaliza los mensajes que se envían por WhatsApp y email</p>
+        <h1 class="text-xl font-bold text-slate-900">Plantillas de mensajes</h1>
+        <p class="text-sm text-slate-500 mt-0.5">Personaliza los mensajes que se envían por WhatsApp y email</p>
     </div>
 
     <div class="space-y-6">
         {% for p in plantillas %}
-        <div class="bg-slate-900 rounded-lg border border-slate-800 p-5" id="plantilla-{{ p.id }}">
-            <div class="flex items-center justify-between mb-3">
-                <div>
-                    <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold
-                        {% if p.canal == 'whatsapp' %}bg-emerald-900/50 text-emerald-400{% else %}bg-blue-900/50 text-blue-400{% endif %}">
+        <div class="card" id="plantilla-{{ p.id }}">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider
+                        {% if p.canal == 'whatsapp' %}bg-emerald-100 text-emerald-800{% else %}bg-blue-100 text-blue-800{% endif %}">
                         {{ p.canal }}
                     </span>
-                    <span class="text-sm font-medium ml-2">{{ p.descripcion }}</span>
+                    <span class="text-sm font-semibold text-slate-700">{{ p.descripcion }}</span>
                 </div>
                 <div class="flex gap-2">
                     <button onclick="previewPlantilla({{ p.id }})"
-                            class="text-xs text-brand hover:text-brand-light">Vista previa</button>
+                            class="btn btn-ghost btn-sm">👁️ Vista previa</button>
                     <button onclick="guardarPlantilla({{ p.id }}, this)"
                             class="btn btn-primary btn-sm">Guardar</button>
                 </div>
             </div>
 
             {% if p.asunto %}
-            <div class="mb-2">
-                <label class="text-xs text-slate-500 block mb-1">Asunto (solo email)</label>
+            <div class="mb-3">
+                <label class="text-xs font-medium text-slate-500 block mb-1">Asunto (solo email)</label>
                 <input id="asunto-{{ p.id }}" value="{{ p.asunto }}"
-                       class="w-full bg-slate-800 rounded px-3 py-2 text-sm border border-slate-700 font-mono">
+                       class="input font-mono">
             </div>
             {% endif %}
 
             <div>
-                <label class="text-xs text-slate-500 block mb-1">Cuerpo del mensaje</label>
+                <label class="text-xs font-medium text-slate-500 block mb-1">Cuerpo del mensaje</label>
                 <textarea id="cuerpo-{{ p.id }}" rows="6"
-                    class="w-full bg-slate-800 rounded px-3 py-2 text-sm border border-slate-700 font-mono">{{ p.cuerpo }}</textarea>
+                    class="input font-mono resize-y">{{ p.cuerpo }}</textarea>
             </div>
 
-            <div class="mt-2 text-xs text-slate-500">
-                Variables disponibles: <code class="text-brand">{nombre}</code> <code class="text-brand">{periodo}</code> <code class="text-brand">{monto}</code>
+            <div class="mt-2 text-xs text-slate-400">
+                Variables disponibles: <code class="font-semibold text-blue-600">{nombre}</code> <code class="font-semibold text-blue-600">{periodo}</code> <code class="font-semibold text-blue-600">{monto}</code>
             </div>
 
-            <!-- Preview -->
             <div id="preview-{{ p.id }}" class="mt-3 hidden">
-                <div class="bg-slate-950 rounded p-3 text-sm border border-slate-700 whitespace-pre-wrap font-mono text-slate-300"></div>
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm whitespace-pre-wrap text-slate-700"></div>
             </div>
         </div>
         {% endfor %}
@@ -73,11 +72,11 @@ function guardarPlantilla(id, btn) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     }).then(r => r.json()).then(() => {
-        // feedback visual
         const orig = btn.textContent;
         btn.textContent = '✓ Guardado';
-        btn.classList.add('bg-green-600');
-        setTimeout(() => { btn.textContent = orig; btn.classList.remove('bg-green-600'); }, 2000);
+        btn.classList.remove('btn-primary');
+        btn.classList.add('bg-emerald-600', 'text-white');
+        setTimeout(() => { btn.textContent = orig; btn.classList.add('btn-primary'); btn.classList.remove('bg-emerald-600', 'text-white'); }, 2000);
     });
 }
 </script>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" class="dark">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,86 +7,133 @@
     <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-    <script src="https://unpkg.com/htmx-ext-json-enc@2.0.3/dist/json-enc.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/static/app.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #f8fafc; color: #0f172a; font-size: 16px; }
+        .sidebar { background: #ffffff; border-right: 1px solid #e2e8f0; width: 280px; min-width: 280px; display: flex; flex-direction: column; height: 100vh; position: fixed; left: 0; top: 0; z-index: 40; }
+        .sidebar-brand { padding: 1.75rem 1.25rem 1rem; border-bottom: 1px solid #e2e8f0; text-align: center; }
+        .sidebar-nav { flex: 1; padding: 0.75rem 0.5rem; overflow-y: auto; }
+        .nav-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; border-radius: 0.5rem; color: #334155; font-size: 0.9375rem; font-weight: 600; text-decoration: none; transition: all 0.15s ease; cursor: pointer; }
+        .nav-link:hover { background: #f1f5f9; color: #0f172a; }
+        .nav-link.active { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; font-weight: 700; }
+        .nav-link .nav-icon { font-size: 1.3rem; width: 2rem; text-align: center; }
+        .sidebar-footer { padding: 0.75rem; border-top: 1px solid #e2e8f0; }
+        .main-area { margin-left: 280px; min-height: 100vh; padding: 2rem 2.5rem; background: #f8fafc; }
+        .card { background: #ffffff; border: 1px solid #d1d5db; border-radius: 0.75rem; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .card * { font-family: 'Inter', system-ui, sans-serif; }
+        .card-hover { transition: all 0.15s ease; }
+        .card-hover:hover { border-color: #94a3b8; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.8125rem; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s ease; font-family: inherit; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-sm { padding: 0.4rem 0.75rem; font-size: 0.75rem; }
+        .btn-ghost { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
+        .btn-ghost:hover { background: #f1f5f9; color: #0f172a; }
+        .input { background: #ffffff; border: 1px solid #b0b8c4; border-radius: 0.5rem; padding: 0.5rem 0.75rem; color: #0f172a; font-size: 0.875rem; outline: none; width: 100%; transition: border 0.15s; font-family: inherit; }
+        .input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+        .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100" hx-boost="true">
-    <div class="flex h-screen">
-        <!-- ─── Sidebar ─── -->
-        <aside class="sidebar w-56 flex flex-col">
-            <div class="px-4 py-5 border-b border-slate-800">
-                <div class="brand-card">
-                    <img src="/static/logo.svg" alt="Argus" class="brand-logo">
-                </div>
-                <p class="brand-tagline">Distribuidor de documentos</p>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <img src="/static/logo.svg" alt="Argus" style="height:120px;width:auto;display:block;margin:0 auto;">
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="/" hx-get="/" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true"
+               class="nav-link" data-tab="dashboard"
+               hx-on::after-request="document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active')); this.classList.add('active');">
+                <span class="nav-icon">📊</span> Dashboard
+            </a>
+            <a href="/colaboradores" hx-get="/colaboradores" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true"
+               class="nav-link" data-tab="colaboradores"
+               hx-on::after-request="document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active')); this.classList.add('active');">
+                <span class="nav-icon">👥</span> Colaboradores
+            </a>
+            <a href="/plantillas" hx-get="/plantillas" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true"
+               class="nav-link" data-tab="plantillas"
+               hx-on::after-request="document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active')); this.classList.add('active');">
+                <span class="nav-icon">💬</span> Plantillas
+            </a>
+            <a href="/config" hx-get="/config" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true"
+               class="nav-link" data-tab="config"
+               hx-on::after-request="document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active')); this.classList.add('active');">
+                <span class="nav-icon">⚙️</span> Configuración
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div id="status-cards" class="space-y-1.5 text-xs"
+                 hx-get="/status-cards" hx-trigger="load, every 30s" hx-swap="innerHTML">
+                <div class="animate-pulse text-slate-400 text-center py-2 text-[11px]">Cargando...</div>
             </div>
+        </div>
+    </aside>
 
-            <!-- Navegación -->
-            <nav class="flex-1 px-2 py-3 space-y-1 text-sm">
-                <a href="/"
-                   class="nav-link tab-link"
-                   data-tab="dashboard">
-                    <span class="nav-icon">📊</span> Dashboard
-                </a>
-                <a href="/colaboradores"
-                   class="nav-link tab-link"
-                   data-tab="colaboradores">
-                    <span class="nav-icon">👥</span> Colaboradores
-                </a>
-                <a href="/plantillas"
-                   class="nav-link tab-link"
-                   data-tab="plantillas">
-                    <span class="nav-icon">💬</span> Plantillas
-                </a>
-                <a href="/config"
-                   class="nav-link tab-link"
-                   data-tab="config">
-                    <span class="nav-icon">⚙️</span> Configuración
-                </a>
-            </nav>
-
-            <!-- Status cards -->
-            <div class="px-3 py-3 border-t border-slate-800">
-                <div id="status-cards" class="space-y-2 text-xs"
-                     hx-get="/status-cards" hx-trigger="load, every 30s" hx-swap="innerHTML">
-                    <div class="animate-pulse text-slate-600">Cargando...</div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- ─── Contenido principal ─── -->
-        <main id="main-content" class="flex-1 overflow-auto p-6">
-            {{ content | safe }}
-        </main>
+    <!-- Contenido -->
+    <div class="main-area" id="main-content">
+        {{ content | safe }}
     </div>
 
-<script>
-document.querySelectorAll('.tab-link').forEach(function(el) {
-    el.addEventListener('click', function(e) {
-        e.preventDefault();
-        let url = this.getAttribute('href');
-        fetch(url, { headers: { 'HX-Request': 'true' } })
-            .then(r => r.text())
-            .then(html => {
-                document.getElementById('main-content').innerHTML = html;
-                history.replaceState(null, '', url);
-            });
-        document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
-        this.classList.add('active');
+    <script>
+    document.body.addEventListener('htmx:afterSettle', function(evt) {
+        const path = location.pathname;
+        document.querySelectorAll('.nav-link').forEach(function(l) {
+            l.classList.toggle('active', l.getAttribute('href') === path);
+        });
     });
-});
-// Set active tab on load
-(function() {
-    let path = location.pathname;
-    document.querySelectorAll('.tab-link').forEach(function(l) {
-        if (l.getAttribute('href') === path) {
-            l.classList.add('active');
-        }
-    });
-})();
-</script>
+
+    (function() {
+        const path = location.pathname;
+        document.querySelectorAll('.nav-link').forEach(function(l) {
+            l.classList.toggle('active', l.getAttribute('href') === path);
+        });
+    })();
+
+    /* ─── Preview de factura (modal) ─── */
+    function abrirPreview(facturaId) {
+        const panel = document.getElementById('preview-panel');
+        if (!panel) return;
+        htmx.ajax('GET', '/preview-factura/' + facturaId, {
+            target: '#preview-panel',
+            swap: 'innerHTML',
+        });
+    }
+
+    /* ─── Preview de PDF sin dueño ─── */
+    function abrirSinDueno(archivo) {
+        const panel = document.getElementById('preview-panel');
+        if (!panel) return;
+        const carpeta = document.getElementById('carpeta-input')?.value || '';
+        htmx.ajax('POST', '/preview-extraccion', {
+            target: '#preview-panel',
+            swap: 'innerHTML',
+            values: { archivo: archivo, carpeta: carpeta },
+        });
+    }
+    </script>
 </body>
 </html>

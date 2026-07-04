@@ -21,6 +21,7 @@ class Factura(Base):
     # Flags de envío
     enviado_email = Column(Integer, default=0)
     enviado_whatsapp = Column(Integer, default=0)
+    enviado_sms = Column(Integer, default=0)
 
     procesado_en = Column(DateTime, server_default=func.now())
 

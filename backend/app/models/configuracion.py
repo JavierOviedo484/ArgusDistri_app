@@ -31,4 +31,6 @@ CONFIG_DEFAULT = [
     ("empresa_nombre", "ARGUS", "Nombre de la empresa"),
     ("whatsapp_api_url", "", "URL de Evolution API (ej: http://192.168.100.22:8080)"),
     ("whatsapp_api_key", "", "API Key de Evolution API"),
+    ("sms_api_url", "", "URL del gateway SMS (ej: http://IP-del-telefono:8082 con la app Traccar SMS Gateway, o tu proveedor)"),
+    ("sms_api_key", "", "API Key / token del gateway SMS"),
 ]

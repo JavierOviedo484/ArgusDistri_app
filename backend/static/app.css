@@ -1,7 +1,11 @@
 /* ─────────────────────────────────────────────────────────────
-   Argus · Distribuidor de documentos
-   Sistema de marca corporativa (las utilidades tipo Tailwind
-   las provee el CDN de Tailwind cargado en dashboard.html)
+   Argus · Distribuidor de documentos — TEMA CLARO PROFESIONAL
+   Sidebar azul marino corporativo + área de contenido clara.
+   Las utilidades tipo Tailwind las provee el CDN cargado en
+   dashboard.html; la sección "OVERRIDES" de abajo remapea las
+   clases oscuras heredadas (bg-slate-900, text-slate-300, …)
+   a su equivalente claro, escopadas a <main> para no afectar
+   el sidebar de marca.
    ───────────────────────────────────────────────────────────── */
 
 :root {
@@ -14,28 +18,27 @@
 
     --brand-600: #0145bc;   /* azul corporativo — rellenos sólidos */
     --brand-500: #0955d6;   /* hover de rellenos */
-    --brand-400: #4d8dff;   /* texto/iconos legibles sobre fondo oscuro */
-    --brand-300: #86b3ff;   /* hover de texto */
-    --brand-soft: rgba(1, 69, 188, .16);
-    --brand-soft-border: rgba(1, 69, 188, .4);
+    --brand-400: #4d8dff;   /* texto/iconos sobre fondo oscuro (sidebar) */
+    --brand-300: #86b3ff;
+    --brand-soft: rgba(1, 69, 188, .08);
+    --brand-soft-border: rgba(1, 69, 188, .25);
 
-    --shadow-sm: 0 1px 2px rgba(0,0,0,.35);
-    --shadow-md: 0 4px 16px rgba(0,0,0,.35);
-    --shadow-lg: 0 12px 32px rgba(0,0,0,.45);
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+    --shadow-md: 0 4px 12px rgba(16, 24, 40, .08);
+    --shadow-lg: 0 12px 32px rgba(16, 24, 40, .12);
 }
 
 /* ─── Reset & Base ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { color-scheme: dark; }
+html { color-scheme: light; }
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background:
-        radial-gradient(1100px 700px at 100% -12%, rgba(1,69,188,.10), transparent 60%),
-        radial-gradient(900px 600px at -10% 110%, rgba(4,21,45,.55), transparent 60%),
-        #020617;
-    color: #e2e8f0;
+        radial-gradient(1100px 700px at 100% -12%, rgba(1, 69, 188, .05), transparent 60%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    color: #1e293b;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 }
@@ -48,17 +51,16 @@ code, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, mon
 
 ::selection { background: var(--brand-600); color: #fff; }
 
-/* Acento de marca — usar para links, montos, datos destacados */
-.text-brand { color: var(--brand-400); }
-.hover\:text-brand:hover, .hover\:text-brand-light:hover { color: var(--brand-300); }
+/* Acento de marca */
+main .text-brand { color: var(--brand-600); }
+main .hover\:text-brand:hover { color: var(--brand-500); }
 .bg-brand { background-color: var(--brand-600); }
 .bg-brand-soft { background-color: var(--brand-soft); }
 
 /* ─────────────────────────────────────────────────────────────
-   Componentes de marca
+   Sidebar de marca (se mantiene azul marino corporativo)
    ───────────────────────────────────────────────────────────── */
 
-/* Tarjeta de logo en el sidebar */
 .brand-card {
     background: #fff;
     border-radius: 0.75rem;
@@ -66,7 +68,7 @@ code, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, mon
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: var(--shadow-sm), 0 0 0 1px rgba(255,255,255,.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 0 0 1px rgba(255, 255, 255, .05);
 }
 .brand-logo { width: 100%; max-width: 148px; height: auto; display: block; }
 .brand-tagline {
@@ -78,13 +80,14 @@ code, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, mon
     margin-top: 0.65rem;
 }
 
-/* Sidebar */
 .sidebar {
     background: linear-gradient(180deg, var(--navy-900) 0%, var(--navy-950) 100%);
-    border-right: 1px solid rgba(255,255,255,.06);
+    border-right: 1px solid rgba(2, 12, 25, .25);
+    box-shadow: 2px 0 12px rgba(2, 12, 25, .12);
+    color: #cbd5e1;
 }
+.sidebar .text-brand { color: var(--brand-400); }
 
-/* Enlaces de navegación */
 .nav-link {
     display: flex;
     align-items: center;
@@ -97,19 +100,16 @@ code, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, mon
     text-decoration: none;
     border-left: 3px solid transparent;
 }
-.nav-link:hover { background: rgba(255,255,255,.05); color: #fff; }
+.nav-link:hover { background: rgba(255, 255, 255, .05); color: #fff; }
 .nav-link.active {
-    background: linear-gradient(90deg, var(--brand-soft), transparent);
+    background: linear-gradient(90deg, rgba(1, 69, 188, .35), transparent);
     color: #fff;
     border-left-color: var(--brand-400);
 }
 .nav-icon { font-size: 1rem; width: 1.15rem; text-align: center; opacity: .95; }
 
-/* Indicador de estado "activo" con pulso */
-.status-dot {
-    position: relative;
-    display: inline-block;
-}
+/* Indicador "activo" con pulso */
+.status-dot { position: relative; display: inline-block; }
 .status-dot::after {
     content: '';
     position: absolute;
@@ -136,21 +136,15 @@ code, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, mon
 }
 .btn:active { transform: translateY(1px); }
 .btn-sm { padding: 0.4rem 0.85rem; font-size: 0.8rem; }
-.btn-primary {
-    background: var(--brand-600); color: #fff;
-    box-shadow: var(--shadow-sm);
-}
+.btn-primary { background: var(--brand-600); color: #fff; box-shadow: var(--shadow-sm); }
 .btn-primary:hover { background: var(--brand-500); }
 .btn-success { background: #059669; color: #fff; }
 .btn-success:hover { background: #10b981; }
-.btn-ghost { background: transparent; color: #94a3b8; }
-.btn-ghost:hover { color: #fff; }
+.btn-ghost { background: transparent; color: #64748b; }
+.btn-ghost:hover { color: #0f172a; }
 
-/* ─── Formularios ─── */
-input, textarea, select {
-    font-family: inherit;
-    color: inherit;
-}
+/* ─── Formularios (área de contenido) ─── */
+input, textarea, select { font-family: inherit; color: inherit; }
 input:focus, textarea:focus, select:focus {
     outline: none;
     border-color: var(--brand-600);
@@ -159,11 +153,91 @@ input:focus, textarea:focus, select:focus {
 
 /* ─── Tabla ─── */
 table { border-collapse: collapse; width: 100%; }
-thead tr { background: #0f172a; }
+main thead tr { background: #f1f5f9; }
 tbody tr { transition: background 0.15s; }
+main tbody tr:hover { background: #f8fafc; }
 
 /* ─── Scroll ─── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0f172a; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--brand-600); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+main ::-webkit-scrollbar-track, body::-webkit-scrollbar-track { background: #e9eef5; }
+::-webkit-scrollbar-thumb { background: #b6c2d4; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--brand-500); }
+
+/* ─────────────────────────────────────────────────────────────
+   OVERRIDES TEMA CLARO
+   Remapea las utilidades oscuras usadas en plantillas y en el
+   HTML generado por el backend. Escopado a <main> para que el
+   sidebar conserve su estilo de marca.
+   ───────────────────────────────────────────────────────────── */
+
+/* Fondos de tarjetas y paneles */
+main .bg-slate-900,
+main .bg-slate-900\/50,
+main .bg-slate-900\/80 {
+    background-color: #ffffff;
+    box-shadow: var(--shadow-sm);
+}
+main .bg-slate-950 { background-color: #f1f5f9; }
+main .bg-slate-800 { background-color: #ffffff; }
+main .hover\:bg-slate-800\/50:hover { background-color: #f1f5f9; box-shadow: var(--shadow-md); }
+main .hover\:bg-slate-800:hover { background-color: #f1f5f9; }
+
+/* Chips / badges translúcidos */
+main .bg-emerald-900\/50 { background-color: #d1fae5; }
+main .bg-blue-900\/50 { background-color: #dbeafe; }
+main .bg-red-900\/20 { background-color: #fef2f2; }
+main .bg-amber-900\/20 { background-color: #fffbeb; }
+
+/* Bordes */
+main .border-slate-800, main .border-slate-800\/60 { border-color: #e2e8f0; }
+main .border-slate-700 { border-color: #cbd5e1; }
+main .border-red-800\/50 { border-color: #fecaca; }
+main .border-amber-800\/50 { border-color: #fde68a; }
+main .border-emerald-800\/50, main .border-emerald-800\/60 { border-color: #a7f3d0; }
+main .border-blue-800\/60 { border-color: #bfdbfe; }
+main .border-violet-800\/60 { border-color: #ddd6fe; }
+main .border-cyan-800\/50 { border-color: #a5f3fc; }
+
+/* Texto neutro */
+main .text-slate-100 { color: #0f172a; }
+main .text-slate-300 { color: #334155; }
+main .text-slate-400 { color: #475569; }
+main .text-slate-500 { color: #64748b; }
+main .text-slate-600 { color: #94a3b8; }
+main .text-slate-700 { color: #cbd5e1; }
+main .hover\:text-slate-300:hover { color: #0f172a; }
+main .hover\:text-white:hover { color: #0f172a; }
+
+/* Texto "blanco" usado como dato destacado sobre tarjetas
+   (solo divs/spans/strong — los botones de color conservan su texto blanco) */
+main div.text-white, main span.text-white, main strong.text-white, main td.text-white {
+    color: #0f172a;
+}
+
+/* Colores semánticos: tonos oscuros legibles sobre fondo claro */
+main .text-emerald-400 { color: #059669; }
+main .text-emerald-300 { color: #047857; }
+main .text-amber-400 { color: #b45309; }
+main .text-amber-300 { color: #b45309; }
+main .text-amber-200\/80 { color: #92400e; }
+main .text-red-400 { color: #dc2626; }
+main .text-red-300 { color: #b91c1c; }
+main .text-blue-400 { color: #2563eb; }
+main .text-blue-300 { color: #1d4ed8; }
+main .text-cyan-400 { color: #0e7490; }
+main .text-violet-400 { color: #6d28d9; }
+
+/* Inputs oscuros → claros */
+main input.bg-slate-800, main textarea.bg-slate-800, main select.bg-slate-800 {
+    background-color: #ffffff;
+    border-color: #cbd5e1;
+    color: #1e293b;
+}
+
+/* Botón neutro "Ver" (slate oscuro con texto blanco): se conserva
+   oscuro a propósito — contraste correcto sobre tarjeta blanca. */
+
+/* Panel de preview: separación visual clara */
+main .preview-panel > div {
+    box-shadow: var(--shadow-lg);
+}

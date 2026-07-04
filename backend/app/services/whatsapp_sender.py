@@ -11,10 +11,12 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+# El aviso "si esta factura no le corresponde, comuníquese urgentemente" vive
+# en la PLANTILLA del canal (editable desde el dashboard); aquí solo se marca
+# que el mensaje es automático, para no duplicar el texto de contacto.
 DISCLAIMER = (
-    "\n\n—\n🤖 Este mensaje fue generado automáticamente por un sistema "
-    "de distribución de documentos. Si no corresponde a su usuario, "
-    "por favor comuníquese con ARGUS al correo javierparedes484@gmail.com."
+    "\n\n—\n🤖 Mensaje generado automáticamente por el sistema "
+    "de distribución de documentos ARGUS."
 )
 
 

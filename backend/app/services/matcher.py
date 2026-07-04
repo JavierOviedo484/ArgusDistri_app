@@ -82,10 +82,15 @@ class Matcher:
         db_session: DBSession,
         extractor: Optional[ExtractorPDF] = None,
         patrones_extra: Optional[dict] = None,
+        auto_registrar: bool = True,
     ):
         self.carpeta = Path(carpeta_entrada)
         self.db = db_session
         self.extractor = extractor or ExtractorPDF(patrones_extra=patrones_extra)
+        # Si el PDF trae nombre + identificador y el colaborador no existe,
+        # se registra automáticamente (queda "sin dueño" solo cuando la
+        # extracción no logra identificar a la persona).
+        self.auto_registrar = auto_registrar
 
     def escanear(self) -> list[MatchResult]:
         """
@@ -132,6 +137,29 @@ class Matcher:
                     f"'{colaborador.nombre}' se encontró por nombre, no por ID. "
                     f"Considera registrar su RUC/cédula en la ficha del colaborador."
                 )
+
+        # Registro automático: el PDF identifica a la persona (nombre + RUC)
+        # pero aún no está en la BD → se crea el colaborador con los datos
+        # extraídos y la factura queda asignada en el mismo escaneo.
+        if (
+            not colaborador
+            and self.auto_registrar
+            and extraido.identificador
+            and extraido.nombre_colaborador
+        ):
+            email = extraido.email if extraido.email and extraido.email != "sin correo" else None
+            colaborador = Colaborador(
+                identificador=extraido.identificador,
+                nombre=extraido.nombre_colaborador.strip(),
+                email=email,
+                telefono=extraido.telefono or None,
+            )
+            self.db.add(colaborador)
+            self.db.commit()
+            alertas.append(
+                f"🆕 '{colaborador.nombre}' registrado automáticamente "
+                f"(RUC {colaborador.identificador})"
+            )
 
         # Si se encontró colaborador, crear factura si no existe
         factura = None

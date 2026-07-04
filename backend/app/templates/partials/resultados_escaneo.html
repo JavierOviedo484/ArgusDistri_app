@@ -1,83 +1,67 @@
 <div class="space-y-4">
-    <!-- Métricas de tiempo -->
-    <div class="flex gap-2 text-[11px] text-slate-500 bg-slate-900/50 rounded-lg px-3 py-2 border border-slate-800">
-        <span>⏱️ <strong class="text-slate-300">{{ tiempo_total }}s</strong> total</span>
-        <span class="text-slate-700">·</span>
-        <span>📄 <strong class="text-slate-300">{{ tiempo_por_pdf }}s</strong> por PDF</span>
+    <!-- Métricas -->
+    <div class="card flex gap-3 items-center text-xs">
+        <span>⏱️ <strong class="text-slate-700">{{ tiempo_total }}s</strong> total</span>
+        <span class="text-slate-300">·</span>
+        <span>📄 <strong class="text-slate-700">{{ tiempo_por_pdf }}s</strong> por PDF</span>
         {% if ok|length > 0 %}
-        <span class="text-slate-700">·</span>
-        <span>📤 <strong class="text-slate-300">{{ ok|length }}</strong> asignadas</span>
+        <span class="text-slate-300">·</span>
+        <span>📤 <strong class="text-slate-700">{{ ok|length }}</strong> asignadas</span>
         {% endif %}
     </div>
 
-    <!-- Resumen -->
-    <div class="flex gap-3">
-        <div class="bg-slate-900 rounded-lg p-3 flex-1 text-center border border-slate-800">
-            <div class="text-2xl font-bold text-emerald-400">{{ total }}</div>
-            <div class="text-[10px] text-slate-500 uppercase mt-1">Total PDFs</div>
+    <!-- Resumen números -->
+    <div class="grid grid-cols-4 gap-3">
+        <div class="card py-3 px-3 text-center">
+            <div class="text-2xl font-bold" style="color:#059669;">{{ total }}</div>
+            <div class="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Total PDFs</div>
         </div>
-        <div class="bg-slate-900 rounded-lg p-3 flex-1 text-center border border-slate-800">
-            <div class="text-2xl font-bold text-emerald-400">{{ ok|length }}</div>
-            <div class="text-[10px] text-slate-500 uppercase mt-1">Asignadas</div>
+        <div class="card py-3 px-3 text-center">
+            <div class="text-2xl font-bold" style="color:#059669;">{{ ok|length }}</div>
+            <div class="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Asignadas</div>
         </div>
-        <div class="bg-slate-900 rounded-lg p-3 flex-1 text-center border border-slate-800">
-            <div class="text-2xl font-bold text-amber-400">{{ sin_dueno|length }}</div>
-            <div class="text-[10px] text-slate-500 uppercase mt-1">Sin dueño</div>
+        <div class="card py-3 px-3 text-center">
+            <div class="text-2xl font-bold" style="color:#d97706;">{{ sin_dueno|length }}</div>
+            <div class="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Sin dueño</div>
         </div>
-        <div class="bg-slate-900 rounded-lg p-3 flex-1 text-center border border-slate-800">
-            <div class="text-2xl font-bold text-red-400">{{ errores|length }}</div>
-            <div class="text-[10px] text-slate-500 uppercase mt-1">Errores</div>
+        <div class="card py-3 px-3 text-center">
+            <div class="text-2xl font-bold" style="color:#ef4444;">{{ errores|length }}</div>
+            <div class="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Errores</div>
         </div>
     </div>
 
-    <!-- Alertas -->
-    {% if alertas %}
-    <div class="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3 text-sm text-amber-300 space-y-1">
-        {% for a in alertas %}
-        <div>⚠️ {{ a }}</div>
-        {% endfor %}
-    </div>
-    {% endif %}
+    <!-- Panel preview -->
+    <div id="preview-panel"></div>
 
     <!-- Facturas asignadas -->
     {% if facturas %}
     <div>
-        <h3 class="text-sm font-bold text-emerald-400 mb-2">✅ Facturas asignadas ({{ facturas|length }})</h3>
+        <h3 class="text-sm font-bold text-slate-700 mb-2">✅ Facturas asignadas ({{ facturas|length }})</h3>
         <div class="space-y-2">
             {% for f in facturas %}
-            <div class="bg-slate-900/80 rounded-lg p-3 border border-slate-800">
+            <div class="card card-hover">
                 <div class="flex items-center justify-between">
                     <div class="flex-1 min-w-0">
-                        <div class="text-sm font-medium text-emerald-300 truncate">{{ f.colaborador_nombre }}</div>
-                        <div class="text-xs text-slate-400 mt-0.5">
-                            {{ f.archivo }} · {{ f.periodo }} · <span class="text-cyan-400">${{ f.monto }}</span>
+                        <div class="text-sm font-semibold" style="color:#059669;">{{ f.colaborador_nombre }}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">
+                            {{ f.archivo }} · {{ f.periodo }} · <span class="font-semibold" style="color:#2563eb;">${{ f.monto }}</span>
                         </div>
-                        <div class="text-[11px] mt-0.5 flex gap-3">
-                            <span class="{% if f.email %}text-blue-300{% else %}text-amber-400{% endif %}">
-                                ✉️ {{ f.email or 'sin email' }}
-                            </span>
-                            <span class="{% if f.telefono %}text-emerald-300{% else %}text-amber-400{% endif %}">
-                                📱 {{ f.telefono or 'sin teléfono' }}
-                            </span>
+                        <div class="text-[11px] mt-1 flex gap-3">
+                            <span class="{% if f.email %}" style="color:#2563eb;"{% else %}" style="color:#d97706;"{% endif %}>✉️ {{ f.email or 'sin email' }}</span>
+                            <span class="{% if f.telefono %}" style="color:#059669;"{% else %}" style="color:#d97706;"{% endif %}>📱 {{ f.telefono or 'sin teléfono' }}</span>
                         </div>
                     </div>
                     <div class="flex gap-1.5 shrink-0 ml-3">
                         <button onclick="abrirPreview({{ f.id }})"
-                                class="text-[11px] bg-slate-700 hover:bg-slate-600 text-white px-2 py-1.5 rounded font-medium">
-                            👁️ Ver
-                        </button>
+                                class="btn btn-ghost btn-sm">👁️ Ver</button>
                         <button hx-post="/api/v1/enviar/email/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
-                                class="text-[11px] bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded font-medium
-                                {% if not f.email %}opacity-40 cursor-not-allowed{% endif %}"
-                                {% if not f.email %}disabled{% endif %}>
-                            📧 Email
-                        </button>
+                                class="btn btn-sm {% if not f.email %}opacity-40{% endif %}"
+                                style="{% if f.email %}background:#2563eb;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
+                                {% if not f.email %}disabled{% endif %}>📧 Email</button>
                         <button hx-post="/api/v1/enviar/whatsapp/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
-                                class="text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded font-medium
-                                {% if not f.telefono %}opacity-40 cursor-not-allowed{% endif %}"
-                                {% if not f.telefono %}disabled{% endif %}>
-                            💬 WhatsApp
-                        </button>
+                                class="btn btn-sm {% if not f.telefono %}opacity-40{% endif %}"
+                                style="{% if f.telefono %}background:#059669;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
+                                {% if not f.telefono %}disabled{% endif %}>💬 WhatsApp</button>
                     </div>
                 </div>
             </div>
@@ -86,24 +70,23 @@
     </div>
     {% endif %}
 
-    <!-- Resultado de envíos -->
     <div id="resultado-envio"></div>
 
     <!-- Sin dueño -->
     {% if sin_dueno %}
     <div>
-        <h3 class="text-sm font-bold text-amber-400 mb-2">⚠️ Sin dueño — haz clic para ver datos y registrar ({{ sin_dueno|length }})</h3>
+        <h3 class="text-sm font-bold" style="color:#d97706; margin-bottom:0.5rem;">⚠️ Sin dueño — haz clic para ver datos y registrar ({{ sin_dueno|length }})</h3>
         <div class="space-y-1">
             {% for r in sin_dueno %}
             <div onclick="abrirSinDueno('{{ r.archivo }}')"
-                 class="bg-slate-900/50 rounded p-2.5 border border-slate-800 cursor-pointer hover:bg-slate-800/50 flex items-center justify-between">
+                 class="card card-hover flex items-center justify-between cursor-pointer">
                 <div>
-                    <div class="text-xs font-medium">{{ r.archivo }}</div>
+                    <div class="text-sm font-medium text-slate-700">{{ r.archivo }}</div>
                     {% if r.nombre_extraido %}
-                    <div class="text-[11px] text-slate-500">{{ r.nombre_extraido }}</div>
+                    <div class="text-xs text-slate-400">{{ r.nombre_extraido }}</div>
                     {% endif %}
                 </div>
-                <div class="text-slate-600 text-sm">👁️ Ver datos →</div>
+                <div class="text-slate-400 text-sm">👁️ Ver datos →</div>
             </div>
             {% endfor %}
         </div>
@@ -113,48 +96,34 @@
     <!-- Errores -->
     {% if errores %}
     <div>
-        <h3 class="text-sm font-bold text-red-400 mb-2">❌ Errores ({{ errores|length }})</h3>
+        <h3 class="text-sm font-bold" style="color:#ef4444; margin-bottom:0.5rem;">❌ Errores ({{ errores|length }})</h3>
         <div class="space-y-1">
             {% for r in errores %}
-            <div class="bg-red-900/20 rounded p-2.5 border border-red-800/50">
-                <div class="text-xs">{{ r.archivo }}</div>
-                <div class="text-[11px] text-red-400">{{ r.extraido.error }}</div>
+            <div class="card" style="background:#fef2f2;border-color:#fecaca;">
+                <div class="text-sm text-slate-700">{{ r.archivo }}</div>
+                <div class="text-xs" style="color:#dc2626;">{{ r.extraido.error }}</div>
             </div>
             {% endfor %}
         </div>
     </div>
     {% endif %}
+
+    <!-- Alertas — resumen colapsable al final -->
+    {% if alertas %}
+    <div class="card" style="background:#f8fafc;border-color:#e2e8f0;">
+        <div onclick="this.nextElementSibling.classList.toggle('hidden')"
+             class="flex items-center justify-between cursor-pointer select-none">
+            <div class="flex items-center gap-2">
+                <span style="font-size:1.1rem;">⚠️</span>
+                <span class="text-sm font-semibold text-slate-700">{{ alertas|length }} alerta(s)</span>
+            </div>
+            <span class="text-slate-400 text-sm" id="alertas-toggle">▼ Ver</span>
+        </div>
+        <div class="hidden mt-3 space-y-1.5 border-t border-slate-200 pt-3">
+            {% for a in alertas %}
+            <div class="text-sm" style="color:#92400e;">⚠️ {{ a }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
-
-<script>
-function abrirPreview(facturaId) {
-    fetch('/preview-factura/' + facturaId)
-        .then(r => r.text())
-        .then(html => {
-            const panel = document.getElementById('preview-panel');
-            if (panel) { panel.innerHTML = html; }
-            else {
-                let div = document.createElement('div');
-                div.innerHTML = html;
-                document.body.appendChild(div.firstElementChild || div);
-            }
-        });
-}
-
-function abrirSinDueno(archivo) {
-    const carpeta = document.getElementById('carpeta-input')?.value || '';
-    const form = new FormData();
-    form.append('archivo', archivo);
-    if (carpeta) form.append('carpeta', carpeta);
-    fetch('/preview-extraccion', {
-        method: 'POST',
-        body: form
-    })
-    .then(r => r.text())
-    .then(html => {
-        const panel = document.getElementById('preview-panel');
-        if (panel) panel.innerHTML = html;
-    });
-}
-</script>
-<div id="preview-panel" class="preview-panel mt-4"></div>

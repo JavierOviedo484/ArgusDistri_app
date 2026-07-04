@@ -59,8 +59,19 @@ def init_db():
     import app.models.configuracion  # noqa
     Base.metadata.create_all(bind=engine)
 
+    # Migración ligera (SQLite): create_all no agrega columnas a tablas ya
+    # existentes — la columna enviado_sms se añade a mano si falta.
+    if "sqlite" in DATABASE_URL:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE facturas ADD COLUMN enviado_sms INTEGER DEFAULT 0"))
+                conn.commit()
+            except Exception:
+                pass  # la columna ya existe
+
     # Seed plantillas por defecto (si no existen)
-    from app.models.plantilla import Plantilla, PLANTILLAS_DEFAULT
+    from app.models.plantilla import Plantilla, PLANTILLAS_DEFAULT, AVISO_NO_CORRESPONDE
     db = SessionLocal()
     try:
         existing = db.query(Plantilla).count()
@@ -75,11 +86,21 @@ def init_db():
                     p.cuerpo = p.cuerpo.replace("ATOM", "ARGUS")
                 if p.asunto and "ATOM" in p.asunto:
                     p.asunto = p.asunto.replace("ATOM", "ARGUS")
+            # Migración: aviso "si no es su factura, comuníquese urgentemente"
+            # en plantillas email/whatsapp que aún no lo tengan.
+            for p in db.query(Plantilla).filter(Plantilla.canal.in_(["email", "whatsapp"])).all():
+                if p.cuerpo and "no le corresponde" not in p.cuerpo.lower():
+                    p.cuerpo = p.cuerpo + AVISO_NO_CORRESPONDE
+            # Migración: plantilla SMS si el canal aún no existe.
+            if db.query(Plantilla).filter_by(canal="sms").count() == 0:
+                for pd in PLANTILLAS_DEFAULT:
+                    if pd["canal"] == "sms":
+                        db.add(Plantilla(**pd))
         db.commit()
     finally:
         db.close()
 
-    # Seed config por defecto (actualiza si cambió, inserta si no existe)
+    # Seed config por defecto (inserta si no existe, pero NO sobrescribe)
     from app.models.configuracion import Configuracion, CONFIG_DEFAULT
     db2 = SessionLocal()
     try:
@@ -88,9 +109,12 @@ def init_db():
             if not exists:
                 db2.add(Configuracion(clave=clave, valor=valor, descripcion=desc))
             else:
-                # Actualizar si el valor cambió (ej: ATOM -> ARGUS)
-                if exists.valor != valor:
+                # Solo migra si el valor actual es exactamente el placeholder vacío
+                # (ej: cuando se creó la tabla con seed original) — NUNCA sobrescribe
+                # un valor que el usuario ya configuró.
+                if exists.valor == "" and valor != "":
                     exists.valor = valor
+                # Actualiza descripción si cambió
                 if exists.descripcion != desc:
                     exists.descripcion = desc
         db2.commit()

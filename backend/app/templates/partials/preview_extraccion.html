@@ -1,58 +1,58 @@
-<div class="bg-slate-900 border border-cyan-800/50 rounded-lg p-4 space-y-3 relative">
+<div class="bg-white border border-slate-200 rounded-xl p-5 space-y-4 relative shadow-sm" style="max-width:720px;">
     <!-- Cabecera -->
     <div class="flex items-center justify-between">
-        <h3 class="text-sm font-bold text-cyan-400 flex items-center gap-1">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-1.5">
             📄 {{ archivo }}
         </h3>
         <button onclick="this.closest('.preview-panel').innerHTML=''"
-                class="text-slate-500 hover:text-slate-300 text-lg leading-none">&times;</button>
+                class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
     </div>
 
     <!-- Visor de PDF -->
     <iframe src="/pdf/carpeta?carpeta={{ carpeta | urlencode }}&archivo={{ archivo | urlencode }}"
-            class="w-full rounded-lg border border-slate-700 bg-white"
+            class="w-full rounded-lg border border-slate-200 bg-white"
             style="height: 45vh;"></iframe>
 
     {% if error %}
-    <div class="text-red-400 text-sm bg-red-900/20 p-3 rounded border border-red-800/50">
+    <div class="text-red-700 text-sm bg-red-50 p-3 rounded-lg border border-red-200">
         ❌ {{ error }}
     </div>
     {% else %}
 
     <!-- Datos extraídos -->
-    <div class="grid grid-cols-2 gap-3 text-xs">
+    <div class="grid grid-cols-2 gap-4 text-sm">
         <div>
-            <span class="text-slate-500">👤 Nombre:</span>
-            <div class="text-white font-medium {% if not nombre %}text-slate-600 italic{% endif %}">
+            <span class="text-slate-400 text-xs font-medium">👤 Nombre</span>
+            <div class="text-slate-800 font-semibold {% if not nombre %}text-slate-400 italic{% endif %}">
                 {{ nombre or "No identificado" }}
             </div>
         </div>
         <div>
-            <span class="text-slate-500">🆔 RUC:</span>
-            <div class="text-white font-mono">{{ identificador or "—" }}</div>
+            <span class="text-slate-400 text-xs font-medium">🆔 RUC</span>
+            <div class="text-slate-800 font-mono">{{ identificador or "—" }}</div>
         </div>
         <div>
-            <span class="text-slate-500">📱 Teléfono:</span>
-            <div class="text-white">{{ telefono or "—" }}</div>
+            <span class="text-slate-400 text-xs font-medium">📱 Teléfono</span>
+            <div class="text-slate-800">{{ telefono or "—" }}</div>
         </div>
         <div>
-            <span class="text-slate-500">✉️ Email:</span>
-            <div class="text-white">{{ email }}</div>
+            <span class="text-slate-400 text-xs font-medium">✉️ Email</span>
+            <div class="text-slate-800">{{ email or "—" }}</div>
         </div>
         <div>
-            <span class="text-slate-500">📅 Período:</span>
-            <div class="text-white">{{ periodo or "—" }}</div>
+            <span class="text-slate-400 text-xs font-medium">📅 Período</span>
+            <div class="text-slate-800">{{ periodo or "—" }}</div>
         </div>
         <div>
-            <span class="text-slate-500">💰 Monto:</span>
-            <div class="text-cyan-400 font-medium">{{ "$" + monto if monto else "—" }}</div>
+            <span class="text-slate-400 text-xs font-medium">💰 Monto</span>
+            <div class="text-blue-600 font-bold">{{ "$" + monto if monto else "—" }}</div>
         </div>
     </div>
 
-    <!-- Botón Registrar como colaborador -->
-    <div class="border-t border-slate-800 pt-3">
+    <!-- Botón Registrar -->
+    <div class="border-t border-slate-100 pt-4">
         {% if colab_existe %}
-        <div class="text-emerald-400 text-xs flex items-center gap-1">
+        <div class="text-emerald-700 text-sm flex items-center gap-1.5 bg-emerald-50 p-3 rounded-lg border border-emerald-200">
             ✅ <strong>{{ nombre }}</strong> ya está registrado como colaborador
         </div>
         {% elif nombre %}
@@ -64,13 +64,23 @@
             <input type="hidden" name="carpeta" value="{{ carpeta }}">
             <input type="hidden" name="archivos_pendientes" value="">
             <button type="submit"
-                    class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded font-medium w-full">
+                    class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg font-semibold w-full transition">
                 📋 Registrar "{{ nombre }}" como colaborador
             </button>
         </form>
         {% else %}
-        <div class="text-amber-400 text-xs">⚠️ No se pudo identificar un nombre en este PDF</div>
+        <div class="text-amber-700 text-sm bg-amber-50 p-3 rounded-lg border border-amber-200">
+            ⚠️ No se pudo identificar un nombre en este PDF
+        </div>
         {% endif %}
     </div>
+
+    <!-- Texto extraído del PDF -->
+    {% if texto_pdf %}
+    <details class="text-xs text-slate-500 border border-slate-200 rounded-lg p-3">
+        <summary class="cursor-pointer hover:text-slate-700 font-semibold">🔎 Ver de dónde se extrajeron los datos del PDF</summary>
+        <pre class="mt-2 bg-slate-50 rounded-lg p-3 overflow-x-auto text-[11px] leading-relaxed max-h-60 text-slate-700 border border-slate-100">{{ texto_pdf }}</pre>
+    </details>
+    {% endif %}
     {% endif %}
 </div>

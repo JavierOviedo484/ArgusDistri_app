@@ -47,7 +47,12 @@ def render_partial(name: str, context: dict) -> str:
     return t.render(**context)
 
 def page(content_html: str, request: Request) -> HTMLResponse:
-    """Envuelve contenido HTML en el layout completo."""
+    """Envuelve contenido HTML en el layout completo.
+    Si la petición viene via HTMX, devuelve solo el contenido."""
+    # Detectar HTMX: si es petición parcial, devolver solo el contenido
+    hx_request = request.headers.get("HX-Request") == "true"
+    if hx_request:
+        return HTMLResponse(content=content_html)
     t = jinja_env.get_template("dashboard.html")
     return HTMLResponse(content=t.render({"request": request, "content": content_html}))
 
@@ -402,6 +407,55 @@ def enviar_whatsapp_individual(factura_id: int, request: Request, db: Session = 
     return HTMLResponse(f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>")
 
 
+@app.post("/api/v1/enviar/sms/{factura_id}")
+def enviar_sms_individual(factura_id: int, request: Request, db: Session = Depends(get_db)):
+    """Envía la notificación de una factura por SMS (sin adjunto)."""
+    from app.models.factura import Factura as FacturaModel
+    from app.models.colaborador import Colaborador as ColaboradorModel
+    from app.models.plantilla import Plantilla
+    from app.models.configuracion import Configuracion
+    from app.models.envio import Envio
+    from app.services.sms_sender import enviar_sms
+
+    factura = db.query(FacturaModel).filter_by(id=factura_id).first()
+    if not factura:
+        return HTMLResponse("<div class='text-red-400 text-sm'>Factura no encontrada</div>")
+
+    colab = db.query(ColaboradorModel).filter_by(identificador=factura.colaborador_id).first()
+    if not colab or not colab.telefono:
+        return HTMLResponse("<div class='text-red-400 text-sm'>Colaborador sin teléfono</div>")
+
+    plantilla = db.query(Plantilla).filter_by(canal="sms", activo=True).first()
+    configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
+
+    cuerpo = plantilla.cuerpo.format(
+        nombre=colab.nombre, periodo=factura.periodo, monto=factura.monto
+    ) if plantilla else f"ARGUS: factura {factura.periodo} de {colab.nombre}"
+
+    resultado = enviar_sms(
+        numero=colab.telefono,
+        mensaje=cuerpo,
+        api_url=configs.get("sms_api_url"),
+        api_key=configs.get("sms_api_key"),
+    )
+
+    envio = Envio(
+        factura_id=factura_id,
+        canal="sms",
+        destinatario=colab.telefono,
+        estado="enviado" if resultado["ok"] else "fallido",
+        error_msg=None if resultado["ok"] else resultado["mensaje"],
+    )
+    db.add(envio)
+    if resultado["ok"]:
+        factura.enviado_sms = True
+    db.commit()
+
+    css = "text-emerald-400" if resultado["ok"] else "text-red-400"
+    icono = "✅" if resultado["ok"] else "❌"
+    return HTMLResponse(f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>")
+
+
 @app.get("/resumen-envio/{canal}", response_class=HTMLResponse)
 def resumen_envio(canal: str, request: Request, db: Session = Depends(get_db)):
     """
@@ -412,11 +466,15 @@ def resumen_envio(canal: str, request: Request, db: Session = Depends(get_db)):
     from app.models.factura import Factura as FacturaModel
     from app.models.colaborador import Colaborador as ColaboradorModel
 
-    if canal not in ("email", "whatsapp"):
+    if canal not in ("email", "whatsapp", "sms"):
         return HTMLResponse("<div class='text-red-400 text-sm'>Canal inválido</div>")
 
-    flag = FacturaModel.enviado_email if canal == "email" else FacturaModel.enviado_whatsapp
-    facturas = db.query(FacturaModel).filter(flag == False).all()  # noqa: E712
+    flags = {
+        "email": FacturaModel.enviado_email,
+        "whatsapp": FacturaModel.enviado_whatsapp,
+        "sms": FacturaModel.enviado_sms,
+    }
+    facturas = db.query(FacturaModel).filter(flags[canal] == False).all()  # noqa: E712
 
     listos = []      # (factura, colaborador, destinatario)
     sin_datos = []   # (factura, colaborador|None, motivo)
@@ -532,6 +590,54 @@ def enviar_lote_whatsapp(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@app.post("/api/v1/enviar-lote/sms")
+def enviar_lote_sms(request: Request, db: Session = Depends(get_db)):
+    """Envía la notificación SMS de todas las facturas pendientes."""
+    from app.models.factura import Factura as FacturaModel
+    from app.models.colaborador import Colaborador as ColaboradorModel
+    from app.models.plantilla import Plantilla
+    from app.models.configuracion import Configuracion
+    from app.models.envio import Envio
+    from app.services.sms_sender import enviar_sms
+
+    enviados = 0
+    fallidos = 0
+    errores = []
+    facturas = db.query(FacturaModel).filter_by(enviado_sms=False).all()
+    if not facturas:
+        return HTMLResponse(
+            "<div class='text-sm mt-2 text-slate-400'>No hay facturas pendientes de enviar por SMS.</div>"
+        )
+    plantilla = db.query(Plantilla).filter_by(canal="sms", activo=True).first()
+    configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
+    for factura in facturas:
+        colab = db.query(ColaboradorModel).filter_by(identificador=factura.colaborador_id).first()
+        if not colab or not colab.telefono:
+            continue
+        cuerpo = plantilla.cuerpo.format(
+            nombre=colab.nombre, periodo=factura.periodo, monto=factura.monto
+        ) if plantilla else f"ARGUS: factura {factura.periodo} de {colab.nombre}"
+        r = enviar_sms(
+            numero=colab.telefono, mensaje=cuerpo,
+            api_url=configs.get("sms_api_url"),
+            api_key=configs.get("sms_api_key"),
+        )
+        envio = Envio(factura_id=factura.id, canal="sms", destinatario=colab.telefono,
+                      estado="enviado" if r["ok"] else "fallido", error_msg=None if r["ok"] else r["mensaje"])
+        db.add(envio)
+        if r["ok"]:
+            factura.enviado_sms = True
+            enviados += 1
+        else:
+            fallidos += 1
+            errores.append(f"{colab.nombre}: {r['mensaje']}")
+    db.commit()
+    return HTMLResponse(
+        f"<div class='text-sm mt-2 text-emerald-400'>✅ {enviados} enviados, ❌ {fallidos} fallidos</div>"
+        + ("".join(f"<div class='text-xs text-red-400'>{e}</div>" for e in errores))
+    )
+
+
 # ─── BORRAR TODO ────────────────────────────────────────────────
 
 
@@ -621,6 +727,7 @@ def preview_extraccion(request: Request, archivo: str = Form(""), carpeta: str =
         "error": datos.error,
         "es_valido": datos.es_valido,
         "colab_existe": colab_exists,
+        "texto_pdf": datos.texto_completo[:2000] if datos.texto_completo else "",
     })
 
 

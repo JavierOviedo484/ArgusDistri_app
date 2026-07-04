@@ -44,6 +44,14 @@ class Plantilla(Base):
 
 # ─── Plantillas por defecto ──────────────────────────────────────
 
+# Aviso que acompaña a todos los canales. OJO: texto literal, sin {placeholders}
+# nuevos — las plantillas se renderizan con .format(nombre=, periodo=, monto=).
+AVISO_NO_CORRESPONDE = (
+    "\n\n⚠️ IMPORTANTE: si esta factura NO le corresponde o los datos no "
+    "coinciden con su identidad, por favor comuníquese URGENTEMENTE con la "
+    "empresa ARGUS al correo javierparedes484@gmail.com para reportarlo."
+)
+
 PLANTILLAS_DEFAULT = [
     {
         "canal": "whatsapp",
@@ -57,6 +65,7 @@ PLANTILLAS_DEFAULT = [
             "Adjunto encontrarás el documento PDF.\n\n"
             "Saludos cordiales,\n"
             "Equipo ARGUS"
+            + AVISO_NO_CORRESPONDE
         ),
     },
     {
@@ -72,6 +81,19 @@ PLANTILLAS_DEFAULT = [
             "Quedamos atentos a cualquier consulta.\n\n"
             "Atentamente,\n"
             "Equipo ARGUS"
+            + AVISO_NO_CORRESPONDE
+        ),
+    },
+    {
+        "canal": "sms",
+        "nombre": "factura",
+        "asunto": "",
+        "descripcion": "SMS al enviar factura (sin adjunto; el PDF llega por email/WhatsApp)",
+        "cuerpo": (
+            "ARGUS: Hola {nombre}, se emitio su factura del periodo {periodo} "
+            "por ${monto}. El PDF llega a su correo/WhatsApp. Si esta factura "
+            "NO le corresponde, comuniquese URGENTE con la empresa: "
+            "javierparedes484@gmail.com"
         ),
     },
 ]
