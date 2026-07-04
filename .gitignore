@@ -4,3 +4,5 @@ __pycache__/
 data/db/*.db
 data/db/*.db-shm
 data/db/*.db-wal
+data/servidor.log
+data/ultimo_escaneo.json

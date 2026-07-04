@@ -48,17 +48,22 @@
                 class="btn btn-sm" style="background:#059669;color:white;">
             💬 Enviar todo por WhatsApp
         </button>
+        <button hx-get="/resumen-envio/sms" hx-target="#panel-verificacion" hx-swap="innerHTML"
+                class="btn btn-sm" style="background:#6d28d9;color:white;">
+            📨 Enviar todo por SMS
+        </button>
         <span class="text-xs text-slate-400">Verás la lista antes de confirmar.</span>
     </div>
 
     <div id="panel-verificacion"></div>
     <div id="resultado-envio"></div>
 
-    <!-- Resultados -->
-    <div id="resultados">
+    <!-- Resultados: se cargan de la BD al entrar (no se pierden al navegar)
+         y se refrescan solos tras cada envío (evento refrescarFacturas) -->
+    <div id="resultados" hx-get="/facturas-html" hx-trigger="load, refrescarFacturas from:body"
+         hx-swap="innerHTML">
         <div class="text-center py-16">
-            <p class="text-5xl mb-4 opacity-40">📂</p>
-            <p class="text-slate-400 text-sm">Selecciona la carpeta y presiona <strong class="text-slate-600">Escanear</strong></p>
+            <p class="text-slate-400 text-sm">Cargando…</p>
         </div>
     </div>
 
@@ -77,13 +82,14 @@
 <script>
 document.body.addEventListener('htmx:afterSwap', function(evt) {
     if (evt.detail.target.id === 'resultados') {
+        // Los botones de envío masivo solo se muestran si hay facturas
         const m = document.getElementById('acciones-masivas');
-        if (m) m.classList.remove('hidden');
+        if (m) m.classList.toggle('hidden', !document.getElementById('lista-facturas'));
     }
 });
 
 function borrarTodo() {
     if (!confirm('⚠️ Esto borrará todos los colaboradores, facturas y registros.\nLos PDFs de entrada NO se tocan.\n\nEsta acción no se puede deshacer. ¿Continuar?')) return;
-    htmx.ajax('POST', '/borrar-todo', { target: '#resultados', swap: 'innerHTML' });
+    htmx.ajax('POST', '/borrar-todo', { target: '#resultado-envio', swap: 'innerHTML' });
 }
 </script>

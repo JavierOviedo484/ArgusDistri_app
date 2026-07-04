@@ -226,81 +226,163 @@ def preview_factura(request: Request, factura_id: int, db: Session = Depends(get
     })
 
 
+ULTIMO_ESCANEO_JSON = BASE_DIR.parent / "data" / "ultimo_escaneo.json"
+
+
+def _render_resultados(request: Request, db: Session) -> HTMLResponse:
+    """
+    Vista PERSISTENTE del estado de facturas: se reconstruye desde la BD
+    (+ metadatos del último escaneo guardados en JSON), así no se pierde
+    al navegar entre pestañas ni al reiniciar el servidor.
+    """
+    import json as _json
+    from app.models.factura import Factura as FacturaModel
+    from app.models.colaborador import Colaborador as ColaboradorModel
+    from app.models.envio import Envio
+
+    escaneo = {}
+    if ULTIMO_ESCANEO_JSON.exists():
+        try:
+            escaneo = _json.loads(ULTIMO_ESCANEO_JSON.read_text(encoding="utf-8"))
+        except Exception:
+            escaneo = {}
+
+    # Último envío por (factura, canal) — para mostrar el error si falló
+    ultimo_envio = {}
+    for e in db.query(Envio).order_by(Envio.id).all():
+        ultimo_envio[(e.factura_id, e.canal)] = e
+
+    facturas = []
+    for fact in db.query(FacturaModel).order_by(FacturaModel.id).all():
+        colab = db.query(ColaboradorModel).filter_by(identificador=fact.colaborador_id).first()
+
+        def _error(canal):
+            e = ultimo_envio.get((fact.id, canal))
+            return e.error_msg if e and e.estado == "fallido" else None
+
+        facturas.append({
+            "id": fact.id,
+            "colaborador_nombre": colab.nombre if colab else "(sin colaborador)",
+            "archivo": fact.archivo_original,
+            "periodo": fact.periodo,
+            "monto": fact.monto,
+            "email": colab.email if colab and colab.email and colab.email != "sin correo" else None,
+            "telefono": colab.telefono if colab and colab.telefono else None,
+            "enviado_email": bool(fact.enviado_email),
+            "enviado_whatsapp": bool(fact.enviado_whatsapp),
+            "enviado_sms": bool(getattr(fact, "enviado_sms", 0)),
+            "error_email": _error("email"),
+            "error_whatsapp": _error("whatsapp"),
+            "error_sms": _error("sms"),
+        })
+
+    return render("partials/resultados_escaneo.html", {
+        "request": request,
+        "escaneado": bool(escaneo),
+        "total": escaneo.get("total", len(facturas)),
+        "sin_dueno": escaneo.get("sin_dueno", []),
+        "errores": escaneo.get("errores", []),
+        "alertas": escaneo.get("alertas", []),
+        "tiempo_total": escaneo.get("tiempo_total", 0),
+        "tiempo_por_pdf": escaneo.get("tiempo_por_pdf", 0),
+        "carpeta": escaneo.get("carpeta", ""),
+        "fecha_escaneo": escaneo.get("fecha", ""),
+        "facturas": facturas,
+    })
+
+
+@app.get("/facturas-html", response_class=HTMLResponse)
+def facturas_html(request: Request, db: Session = Depends(get_db)):
+    """Estado actual de facturas — se carga al entrar al Dashboard sin re-escanear."""
+    return _render_resultados(request, db)
+
+
 @app.post("/escaneo-html")
 def escaneo_html(
     request: Request,
     carpeta: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    """Escanea PDFs y devuelve HTML para HTMX con métricas de tiempo."""
+    """Escanea PDFs, persiste el resultado y devuelve la vista de estado."""
     import time
+    import json as _json
+    from datetime import datetime
     from app.services.matcher import Matcher
     from app.api.v1 import PDF_ENTRADA
 
     carpeta_path = Path(carpeta) if carpeta else PDF_ENTRADA
     if not carpeta_path.exists():
-        return render("partials/resultados_escaneo.html", {
-            "request": request, "total": 0, "ok": [], "sin_dueno": [],
-            "errores": [{"archivo": "Carpeta no encontrada", "extraido": {"error": f"No existe: {carpeta_path}"}}],
-            "alertas": [], "facturas": [], "tiempo_total": 0, "tiempo_por_pdf": 0,
-        })
+        aviso = (
+            f"<div class='card' style='border-color:#fecaca;background:#fef2f2;margin-bottom:1rem;'>"
+            f"<div class='text-sm' style='color:#dc2626;'>❌ Carpeta no encontrada: <code>{carpeta_path}</code></div></div>"
+        )
+        base = _render_resultados(request, db)
+        return HTMLResponse(aviso + base.body.decode("utf-8"))
 
     t0 = time.time()
     matcher = Matcher(carpeta_path, db)
     resultados = matcher.escanear()
     tiempo_total = round(time.time() - t0, 2)
 
-    ok = [r.dict() for r in resultados if r.estado == "ok"]
     sin_dueno = [r.dict() for r in resultados if r.estado == "sin_dueño"]
     errores = [r.dict() for r in resultados if r.estado == "error_extraccion"]
     alertas = []
     for r in resultados:
         for a in r.alertas:
             alertas.append(a)
-
-    # Facturas (para botones de envío individual)
-    facturas = []
-    from app.models.factura import Factura as FacturaModel
-    for r in resultados:
-        if r.estado == "ok":
-            fact = db.query(FacturaModel).filter_by(ruta_pdf=str(carpeta_path / r.archivo)).first()
-            if fact:
-                facturas.append({
-                    "id": fact.id,
-                    "colaborador_nombre": r.colaborador.nombre if r.colaborador else "?",
-                    "colaborador_ruc": r.colaborador.identificador if r.colaborador else "",
-                    "archivo": r.archivo,
-                    "periodo": r.extraido.periodo,
-                    "monto": r.extraido.monto,
-                    "email": r.colaborador.email if r.colaborador and r.colaborador.email and r.colaborador.email != "sin correo" else None,
-                    "telefono": r.colaborador.telefono if r.colaborador else None,
-                    "extraido": r.extraido.dict() if hasattr(r.extraido, 'dict') else {},
-                })
-
-    cols_sin_telefono = []
     for r in resultados:
         if r.colaborador and not r.colaborador.telefono:
-            cols_sin_telefono.append(r.colaborador.nombre)
-    for n in cols_sin_telefono:
-        alertas.append(f"⚠️ Sin teléfono registrado: {n}")
+            alertas.append(f"⚠️ Sin teléfono registrado: {r.colaborador.nombre}")
 
-    # Tiempo estimado por PDF
     tiempo_por_pdf = round(tiempo_total / len(resultados), 2) if resultados else 0
 
-    return render("partials/resultados_escaneo.html", {
-        "request": request,
+    # Persistir metadatos del escaneo: la vista sobrevive navegación y reinicios
+    ULTIMO_ESCANEO_JSON.parent.mkdir(parents=True, exist_ok=True)
+    ULTIMO_ESCANEO_JSON.write_text(_json.dumps({
+        "carpeta": str(carpeta_path),
+        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "total": len(resultados),
-        "ok": ok,
-        "sin_dueno": sin_dueno,
-        "errores": errores,
-        "alertas": alertas,
-        "facturas": facturas,
         "tiempo_total": tiempo_total,
         "tiempo_por_pdf": tiempo_por_pdf,
-    })
+        "sin_dueno": [
+            {"archivo": r.get("archivo", "?"),
+             "nombre_extraido": (r.get("extraido") or {}).get("nombre_colaborador") or ""}
+            for r in sin_dueno
+        ],
+        "errores": [
+            {"archivo": r.get("archivo", "?"),
+             "error": (r.get("extraido") or {}).get("error") or "error de extracción"}
+            for r in errores
+        ],
+        "alertas": alertas,
+    }, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    return _render_resultados(request, db)
 
 
 # ─── ENVÍOS ─────────────────────────────────────────────────────
+
+
+def _resultado_lote_html(enviados: int, fallidos: int, errores: list) -> str:
+    """Tarjeta de resultado del envío masivo: verde si todo salió, roja con detalle si algo falló."""
+    if fallidos == 0:
+        return (
+            "<div class='card' style='background:#ecfdf5;border-color:#a7f3d0;margin-bottom:1rem;'>"
+            f"<div class='text-sm font-bold' style='color:#047857;'>✅ ¡Listo! Se enviaron las {enviados} factura(s) correctamente.</div>"
+            "<div class='text-xs mt-1' style='color:#059669;'>Cada factura quedó marcada con su check ✓ en la lista.</div>"
+            "</div>"
+        )
+    detalle = "".join(
+        f"<li class='text-xs' style='color:#b91c1c;'>· {e}</li>" for e in errores[:15]
+    )
+    extra = f"<li class='text-xs' style='color:#b91c1c;'>… y {len(errores) - 15} más</li>" if len(errores) > 15 else ""
+    return (
+        "<div class='card' style='background:#fef2f2;border-color:#fecaca;margin-bottom:1rem;'>"
+        f"<div class='text-sm font-bold' style='color:#dc2626;'>⚠️ Atención: {enviados} enviada(s), {fallidos} FALLARON</div>"
+        f"<ul class='mt-1.5 space-y-0.5'>{detalle}{extra}</ul>"
+        "<div class='text-xs mt-2' style='color:#64748b;'>Las que fallaron siguen como pendientes — corrige el problema y vuelve a enviar (solo se reenvían las pendientes).</div>"
+        "</div>"
+    )
 
 
 @app.post("/api/v1/enviar/email/{factura_id}")
@@ -355,7 +437,10 @@ def enviar_email_individual(factura_id: int, request: Request, db: Session = Dep
 
     css = "text-emerald-400" if resultado["ok"] else "text-red-400"
     icono = "✅" if resultado["ok"] else "❌"
-    return HTMLResponse(f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>")
+    return HTMLResponse(
+        f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>",
+        headers={"HX-Trigger": "refrescarFacturas"},
+    )
 
 
 @app.post("/api/v1/enviar/whatsapp/{factura_id}")
@@ -383,11 +468,14 @@ def enviar_whatsapp_individual(factura_id: int, request: Request, db: Session = 
         nombre=colab.nombre, periodo=factura.periodo, monto=factura.monto
     ) if plantilla else f"Factura de {colab.nombre}"
 
+    pdf_path = Path(factura.ruta_pdf) if factura.ruta_pdf else None
     resultado = enviar_whatsapp(
         numero=colab.telefono,
         mensaje=cuerpo,
         api_url=configs.get("whatsapp_api_url"),
         api_key=configs.get("whatsapp_api_key"),
+        instance=configs.get("whatsapp_instance"),
+        adjunto_pdf=pdf_path if pdf_path and pdf_path.exists() else None,
     )
 
     envio = Envio(
@@ -404,7 +492,10 @@ def enviar_whatsapp_individual(factura_id: int, request: Request, db: Session = 
 
     css = "text-emerald-400" if resultado["ok"] else "text-red-400"
     icono = "✅" if resultado["ok"] else "❌"
-    return HTMLResponse(f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>")
+    return HTMLResponse(
+        f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>",
+        headers={"HX-Trigger": "refrescarFacturas"},
+    )
 
 
 @app.post("/api/v1/enviar/sms/{factura_id}")
@@ -453,7 +544,36 @@ def enviar_sms_individual(factura_id: int, request: Request, db: Session = Depen
 
     css = "text-emerald-400" if resultado["ok"] else "text-red-400"
     icono = "✅" if resultado["ok"] else "❌"
-    return HTMLResponse(f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>")
+    return HTMLResponse(
+        f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>",
+        headers={"HX-Trigger": "refrescarFacturas"},
+    )
+
+
+@app.get("/api/v1/probar-whatsapp", response_class=HTMLResponse)
+def probar_whatsapp(db: Session = Depends(get_db)):
+    """Comprueba conexión con Evolution API y estado de la instancia (para el botón de Config)."""
+    from app.models.configuracion import Configuracion
+    from app.services.whatsapp_sender import probar_conexion
+
+    configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
+    r = probar_conexion(
+        api_url=configs.get("whatsapp_api_url"),
+        api_key=configs.get("whatsapp_api_key"),
+        instance=configs.get("whatsapp_instance"),
+    )
+    if r["ok"]:
+        estilo = "background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;"
+        icono = "✅"
+    elif r["estado"] in ("apagada", "sin_config"):
+        estilo = "background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;"
+        icono = "🔴"
+    else:
+        estilo = "background:#fffbeb;border:1px solid #fde68a;color:#92400e;"
+        icono = "⚠️"
+    return HTMLResponse(
+        f"<div class='text-xs rounded-lg p-2.5' style='{estilo}'>{icono} {r['mensaje']}</div>"
+    )
 
 
 @app.get("/resumen-envio/{canal}", response_class=HTMLResponse)
@@ -539,10 +659,7 @@ def enviar_lote_email(request: Request, db: Session = Depends(get_db)):
             fallidos += 1
             errores.append(f"{colab.nombre}: {r['mensaje']}")
     db.commit()
-    return HTMLResponse(
-        f"<div class='text-sm mt-2 text-emerald-400'>✅ {enviados} enviados, ❌ {fallidos} fallidos</div>"
-        + ("".join(f"<div class='text-xs text-red-400'>{e}</div>" for e in errores))
-    )
+    return HTMLResponse(_resultado_lote_html(enviados, fallidos, errores), headers={"HX-Trigger": "refrescarFacturas"})
 
 
 @app.post("/api/v1/enviar-lote/whatsapp")
@@ -569,10 +686,13 @@ def enviar_lote_whatsapp(request: Request, db: Session = Depends(get_db)):
         plantilla = db.query(Plantilla).filter_by(canal="whatsapp", activo=True).first()
         configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
         cuerpo = plantilla.cuerpo.format(nombre=colab.nombre, periodo=factura.periodo, monto=factura.monto) if plantilla else ""
+        pdf_path = Path(factura.ruta_pdf) if factura.ruta_pdf else None
         r = enviar_whatsapp(
             numero=colab.telefono, mensaje=cuerpo,
             api_url=configs.get("whatsapp_api_url"),
             api_key=configs.get("whatsapp_api_key"),
+            instance=configs.get("whatsapp_instance"),
+            adjunto_pdf=pdf_path if pdf_path and pdf_path.exists() else None,
         )
         envio = Envio(factura_id=factura.id, canal="whatsapp", destinatario=colab.telefono,
                       estado="enviado" if r["ok"] else "fallido", error_msg=None if r["ok"] else r["mensaje"])
@@ -584,10 +704,7 @@ def enviar_lote_whatsapp(request: Request, db: Session = Depends(get_db)):
             fallidos += 1
             errores.append(f"{colab.nombre}: {r['mensaje']}")
     db.commit()
-    return HTMLResponse(
-        f"<div class='text-sm mt-2 text-emerald-400'>✅ {enviados} enviados, ❌ {fallidos} fallidos</div>"
-        + ("".join(f"<div class='text-xs text-red-400'>{e}</div>" for e in errores))
-    )
+    return HTMLResponse(_resultado_lote_html(enviados, fallidos, errores), headers={"HX-Trigger": "refrescarFacturas"})
 
 
 @app.post("/api/v1/enviar-lote/sms")
@@ -632,10 +749,7 @@ def enviar_lote_sms(request: Request, db: Session = Depends(get_db)):
             fallidos += 1
             errores.append(f"{colab.nombre}: {r['mensaje']}")
     db.commit()
-    return HTMLResponse(
-        f"<div class='text-sm mt-2 text-emerald-400'>✅ {enviados} enviados, ❌ {fallidos} fallidos</div>"
-        + ("".join(f"<div class='text-xs text-red-400'>{e}</div>" for e in errores))
-    )
+    return HTMLResponse(_resultado_lote_html(enviados, fallidos, errores), headers={"HX-Trigger": "refrescarFacturas"})
 
 
 # ─── BORRAR TODO ────────────────────────────────────────────────
@@ -674,6 +788,10 @@ def borrar_todo(request: Request, db: Session = Depends(get_db)):
         db.query(model).delete()
     db.commit()
 
+    # Borrar también el estado del último escaneo (la vista queda vacía)
+    if ULTIMO_ESCANEO_JSON.exists():
+        ULTIMO_ESCANEO_JSON.unlink()
+
     return HTMLResponse("""
     <div class="text-sm text-emerald-400 bg-slate-900 rounded-lg p-4 border border-emerald-800/50">
         ✅ <strong>Sistema reseteado</strong>
@@ -684,7 +802,7 @@ def borrar_todo(request: Request, db: Session = Depends(get_db)):
         </ul>
         <p class="mt-2 text-xs text-slate-500">Las plantillas y configuración se conservan.</p>
     </div>
-    """)
+    """, headers={"HX-Trigger": "refrescarFacturas"})
 
 
 # ─── PREVIEW / VERIFICACIÓN DE EXTRACCIÓN ─────────────────────

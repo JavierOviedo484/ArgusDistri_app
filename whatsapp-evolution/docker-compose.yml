@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────
+# Evolution API — servidor local de WhatsApp para ARGUS
+#
+# Encender:   docker compose up -d
+# Apagar:     docker compose down
+# Ver logs:   docker compose logs -f evolution-api
+#
+# Tras encender, abrir http://localhost:8080/manager
+# (API Key: la misma AUTHENTICATION_API_KEY de abajo)
+# ─────────────────────────────────────────────────────────────
+services:
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7
+    container_name: argus-evolution
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # ⚠️ Debe coincidir con whatsapp_api_key en la Configuración de ARGUS
+      - AUTHENTICATION_API_KEY=argus-whatsapp-2026
+      - SERVER_URL=http://localhost:8080
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:evolution@postgres:5432/evolution?schema=public
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=false
+      - DATABASE_SAVE_MESSAGE_UPDATE=false
+      - DATABASE_SAVE_DATA_CONTACTS=false
+      - DATABASE_SAVE_DATA_CHATS=false
+      - CACHE_REDIS_ENABLED=false
+      - CACHE_LOCAL_ENABLED=true
+      - CONFIG_SESSION_PHONE_CLIENT=ARGUS
+      - CONFIG_SESSION_PHONE_NAME=Chrome
+      - QRCODE_LIMIT=30
+      - LOG_LEVEL=ERROR
+      - LANGUAGE=es
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: argus-evolution-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=evolution
+      - POSTGRES_DB=evolution
+    volumes:
+      - evolution_pg:/var/lib/postgresql/data
+
+volumes:
+  evolution_instances:
+  evolution_pg:
