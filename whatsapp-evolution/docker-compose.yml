@@ -31,6 +31,12 @@ services:
       - CACHE_LOCAL_ENABLED=true
       - CONFIG_SESSION_PHONE_CLIENT=ARGUS
       - CONFIG_SESSION_PHONE_NAME=Chrome
+      # Versión del protocolo de WhatsApp Web — si el teléfono dice
+      # "No se pudo vincular el dispositivo" al escanear el QR, hay que
+      # actualizarla con la vigente de:
+      # https://raw.githubusercontent.com/wppconnect-team/wa-version/main/versions.json
+      # (usar la más reciente SIN el sufijo "-alpha")
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1042620056
       - QRCODE_LIMIT=30
       - LOG_LEVEL=ERROR
       - LANGUAGE=es
