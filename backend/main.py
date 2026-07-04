@@ -7,14 +7,15 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fastapi import FastAPI, Request, Depends, Form
+from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from sqlalchemy.orm import Session
 from jinja2 import Environment, FileSystemLoader
 
 from app.core.database import init_db, get_db
 from app.api.v1 import router as api_router
+from app.schemas import ColaboradorCreate
 
 app = FastAPI(title="Argus · Distribuidor de Documentos", version="1.0.0")
 
@@ -75,6 +76,39 @@ def pagina_colaboradores(request: Request, db: Session = Depends(get_db)):
     }), request)
 
 
+def _tabla_colaboradores_html(db: Session) -> str:
+    from app.models.colaborador import Colaborador
+    cols = db.query(Colaborador).order_by(Colaborador.nombre).all()
+    return render_partial("colaboradores_tabla.html", {"colaboradores": cols})
+
+
+@app.post("/colaboradores/guardar", response_class=HTMLResponse)
+def guardar_colaborador(data: ColaboradorCreate, db: Session = Depends(get_db)):
+    from app.models.colaborador import Colaborador
+
+    existe = db.query(Colaborador).filter_by(identificador=data.identificador).first()
+    if existe:
+        for k, v in data.dict(exclude_unset=True).items():
+            setattr(existe, k, v)
+    else:
+        db.add(Colaborador(**data.dict()))
+    db.commit()
+
+    return HTMLResponse(_tabla_colaboradores_html(db))
+
+
+@app.delete("/colaboradores/{identificador}/eliminar", response_class=HTMLResponse)
+def eliminar_colaborador_html(identificador: str, db: Session = Depends(get_db)):
+    from app.models.colaborador import Colaborador
+
+    colab = db.query(Colaborador).filter_by(identificador=identificador).first()
+    if colab:
+        db.delete(colab)
+        db.commit()
+
+    return HTMLResponse(_tabla_colaboradores_html(db))
+
+
 @app.get("/plantillas", response_class=HTMLResponse)
 def pagina_plantillas(request: Request, db: Session = Depends(get_db)):
     from app.models.plantilla import Plantilla
@@ -93,11 +127,41 @@ def pagina_config(request: Request, db: Session = Depends(get_db)):
     }), request)
 
 
-@app.get("/preview/{archivo}", response_class=HTMLResponse)
-def preview_pdf(request: Request, archivo: str):
-    return render("partials/preview.html", {
-        "request": request, "archivo": archivo,
-    })
+def _pdf_response(ruta: Path) -> FileResponse:
+    """Sirve un PDF para visualización inline (no descarga).
+    La carpeta de origen puede estar fuera del proyecto (p.ej. en el
+    Escritorio), igual que ya permite el escaneo — por eso no restringimos
+    a data/, solo verificamos que exista y sea realmente un .pdf."""
+    if not ruta.exists() or ruta.suffix.lower() != ".pdf":
+        raise HTTPException(404, "PDF no encontrado")
+    return FileResponse(
+        ruta,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{ruta.name}"'},
+    )
+
+
+@app.get("/pdf/factura/{factura_id}")
+def ver_pdf_factura(factura_id: int, db: Session = Depends(get_db)):
+    """Sirve el PDF de una factura ya escaneada/asignada, para verla inline."""
+    from app.models.factura import Factura as FacturaModel
+
+    factura = db.query(FacturaModel).filter_by(id=factura_id).first()
+    if not factura or not factura.ruta_pdf:
+        raise HTTPException(404, "Factura sin PDF asociado")
+    return _pdf_response(Path(factura.ruta_pdf))
+
+
+@app.get("/pdf/carpeta")
+def ver_pdf_carpeta(carpeta: str = "", archivo: str = ""):
+    """Sirve un PDF por carpeta+nombre (facturas 'sin dueño' aún no guardadas)."""
+    from app.api.v1 import PDF_ENTRADA
+
+    if not archivo:
+        raise HTTPException(400, "Falta el nombre del archivo")
+    carpeta_path = Path(carpeta) if carpeta else PDF_ENTRADA
+    nombre = Path(archivo).name  # evita path traversal (../..)
+    return _pdf_response(carpeta_path / nombre)
 
 
 @app.get("/status-cards", response_class=HTMLResponse)
@@ -243,7 +307,6 @@ def enviar_email_individual(factura_id: int, request: Request, db: Session = Dep
     from app.models.configuracion import Configuracion
     from app.models.envio import Envio
     from app.services.email_sender import enviar_email
-    from app.schemas import EnvioCreate
 
     factura = db.query(FacturaModel).filter_by(id=factura_id).first()
     if not factura:
@@ -278,13 +341,16 @@ def enviar_email_individual(factura_id: int, request: Request, db: Session = Dep
         canal="email",
         destinatario=colab.email,
         estado="enviado" if resultado["ok"] else "fallido",
-        respuesta=resultado["mensaje"],
+        error_msg=None if resultado["ok"] else resultado["mensaje"],
     )
     db.add(envio)
+    if resultado["ok"]:
+        factura.enviado_email = True
     db.commit()
 
-    css = "text-green-400" if resultado["ok"] else "text-red-400"
-    return HTMLResponse(f"<div class='{css} text-sm mt-2'>{resultado['mensaje']}</div>")
+    css = "text-emerald-400" if resultado["ok"] else "text-red-400"
+    icono = "✅" if resultado["ok"] else "❌"
+    return HTMLResponse(f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>")
 
 
 @app.post("/api/v1/enviar/whatsapp/{factura_id}")
@@ -324,13 +390,53 @@ def enviar_whatsapp_individual(factura_id: int, request: Request, db: Session = 
         canal="whatsapp",
         destinatario=colab.telefono,
         estado="enviado" if resultado["ok"] else "fallido",
-        respuesta=resultado["mensaje"],
+        error_msg=None if resultado["ok"] else resultado["mensaje"],
     )
     db.add(envio)
+    if resultado["ok"]:
+        factura.enviado_whatsapp = True
     db.commit()
 
-    css = "text-green-400" if resultado["ok"] else "text-red-400"
-    return HTMLResponse(f"<div class='{css} text-sm mt-2'>{resultado['mensaje']}</div>")
+    css = "text-emerald-400" if resultado["ok"] else "text-red-400"
+    icono = "✅" if resultado["ok"] else "❌"
+    return HTMLResponse(f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>")
+
+
+@app.get("/resumen-envio/{canal}", response_class=HTMLResponse)
+def resumen_envio(canal: str, request: Request, db: Session = Depends(get_db)):
+    """
+    Paso de verificación ANTES del envío masivo: muestra exactamente
+    a quién se enviará cada factura y qué datos faltan.
+    El envío real solo ocurre al presionar 'Confirmar envío'.
+    """
+    from app.models.factura import Factura as FacturaModel
+    from app.models.colaborador import Colaborador as ColaboradorModel
+
+    if canal not in ("email", "whatsapp"):
+        return HTMLResponse("<div class='text-red-400 text-sm'>Canal inválido</div>")
+
+    flag = FacturaModel.enviado_email if canal == "email" else FacturaModel.enviado_whatsapp
+    facturas = db.query(FacturaModel).filter(flag == False).all()  # noqa: E712
+
+    listos = []      # (factura, colaborador, destinatario)
+    sin_datos = []   # (factura, colaborador|None, motivo)
+    for f in facturas:
+        colab = db.query(ColaboradorModel).filter_by(identificador=f.colaborador_id).first()
+        if not colab:
+            sin_datos.append((f, None, "sin colaborador asignado"))
+            continue
+        dest = colab.email if canal == "email" else colab.telefono
+        if not dest or dest == "sin correo":
+            sin_datos.append((f, colab, f"sin {'email' if canal == 'email' else 'teléfono'} registrado"))
+        else:
+            listos.append((f, colab, dest))
+
+    return render("partials/resumen_envio.html", {
+        "request": request,
+        "canal": canal,
+        "listos": listos,
+        "sin_datos": sin_datos,
+    })
 
 
 @app.post("/api/v1/enviar-lote/email")
@@ -343,7 +449,9 @@ def enviar_lote_email(request: Request, db: Session = Depends(get_db)):
     errores = []
     facturas = db.query(FacturaModel).filter_by(enviado_email=False).all()
     if not facturas:
-        facturas = db.query(FacturaModel).all()
+        return HTMLResponse(
+            "<div class='text-sm mt-2 text-slate-400'>No hay facturas pendientes de enviar por email.</div>"
+        )
     for factura in facturas:
         from app.models.colaborador import Colaborador as ColaboradorModel
         colab = db.query(ColaboradorModel).filter_by(identificador=factura.colaborador_id).first()
@@ -364,7 +472,7 @@ def enviar_lote_email(request: Request, db: Session = Depends(get_db)):
             smtp_password=configs.get("gmail_app_password"),
         )
         envio = Envio(factura_id=factura.id, canal="email", destinatario=colab.email,
-                      estado="enviado" if r["ok"] else "fallido", respuesta=r["mensaje"])
+                      estado="enviado" if r["ok"] else "fallido", error_msg=None if r["ok"] else r["mensaje"])
         db.add(envio)
         if r["ok"]:
             factura.enviado_email = True
@@ -374,7 +482,7 @@ def enviar_lote_email(request: Request, db: Session = Depends(get_db)):
             errores.append(f"{colab.nombre}: {r['mensaje']}")
     db.commit()
     return HTMLResponse(
-        f"<div class='text-sm mt-2 text-green-400'>✅ {enviados} enviados, ❌ {fallidos} fallidos</div>"
+        f"<div class='text-sm mt-2 text-emerald-400'>✅ {enviados} enviados, ❌ {fallidos} fallidos</div>"
         + ("".join(f"<div class='text-xs text-red-400'>{e}</div>" for e in errores))
     )
 
@@ -389,7 +497,9 @@ def enviar_lote_whatsapp(request: Request, db: Session = Depends(get_db)):
     errores = []
     facturas = db.query(FacturaModel).filter_by(enviado_whatsapp=False).all()
     if not facturas:
-        facturas = db.query(FacturaModel).all()
+        return HTMLResponse(
+            "<div class='text-sm mt-2 text-slate-400'>No hay facturas pendientes de enviar por WhatsApp.</div>"
+        )
     for factura in facturas:
         from app.models.colaborador import Colaborador as ColaboradorModel
         colab = db.query(ColaboradorModel).filter_by(identificador=factura.colaborador_id).first()
@@ -407,7 +517,7 @@ def enviar_lote_whatsapp(request: Request, db: Session = Depends(get_db)):
             api_key=configs.get("whatsapp_api_key"),
         )
         envio = Envio(factura_id=factura.id, canal="whatsapp", destinatario=colab.telefono,
-                      estado="enviado" if r["ok"] else "fallido", respuesta=r["mensaje"])
+                      estado="enviado" if r["ok"] else "fallido", error_msg=None if r["ok"] else r["mensaje"])
         db.add(envio)
         if r["ok"]:
             factura.enviado_whatsapp = True
@@ -417,7 +527,7 @@ def enviar_lote_whatsapp(request: Request, db: Session = Depends(get_db)):
             errores.append(f"{colab.nombre}: {r['mensaje']}")
     db.commit()
     return HTMLResponse(
-        f"<div class='text-sm mt-2 text-green-400'>✅ {enviados} enviados, ❌ {fallidos} fallidos</div>"
+        f"<div class='text-sm mt-2 text-emerald-400'>✅ {enviados} enviados, ❌ {fallidos} fallidos</div>"
         + ("".join(f"<div class='text-xs text-red-400'>{e}</div>" for e in errores))
     )
 
@@ -511,34 +621,6 @@ def preview_extraccion(request: Request, archivo: str = Form(""), carpeta: str =
         "error": datos.error,
         "es_valido": datos.es_valido,
         "colab_existe": colab_exists,
-    })
-
-
-@app.post("/preview-sin-dueno", response_class=HTMLResponse)
-def preview_sin_dueno(request: Request, archivo: str = Form(""), carpeta: str = Form(""), db: Session = Depends(get_db)):
-    """Modal con datos extraídos de un PDF sin dueño."""
-    from app.services.pdf_extractor import ExtractorPDF
-    from app.api.v1 import PDF_ENTRADA
-
-    carpeta_path = Path(carpeta) if carpeta else PDF_ENTRADA
-    pdf_path = carpeta_path / archivo
-
-    if not pdf_path.exists():
-        return HTMLResponse("<div class='text-red-400 text-sm'>PDF no encontrado</div>")
-
-    extractor = ExtractorPDF()
-    datos = extractor.extraer_datos(str(pdf_path))
-
-    return render("partials/preview_sin_dueno.html", {
-        "request": request,
-        "archivo": archivo,
-        "nombre": datos.nombre_colaborador or "",
-        "identificador": datos.identificador or "",
-        "telefono": datos.telefono or "",
-        "email": datos.email or "",
-        "periodo": datos.periodo or "",
-        "monto": datos.monto or "",
-        "error": datos.error,
     })
 
 

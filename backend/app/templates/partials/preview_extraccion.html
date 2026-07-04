@@ -8,6 +8,11 @@
                 class="text-slate-500 hover:text-slate-300 text-lg leading-none">&times;</button>
     </div>
 
+    <!-- Visor de PDF -->
+    <iframe src="/pdf/carpeta?carpeta={{ carpeta | urlencode }}&archivo={{ archivo | urlencode }}"
+            class="w-full rounded-lg border border-slate-700 bg-white"
+            style="height: 45vh;"></iframe>
+
     {% if error %}
     <div class="text-red-400 text-sm bg-red-900/20 p-3 rounded border border-red-800/50">
         ❌ {{ error }}

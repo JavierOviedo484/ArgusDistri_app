@@ -52,26 +52,26 @@ PLANTILLAS_DEFAULT = [
         "descripcion": "Mensaje WhatsApp al enviar factura",
         "cuerpo": (
             "Hola {nombre},\n\n"
-            "ATOM te comparte tu factura correspondiente al "
+            "ARGUS te comparte tu factura correspondiente al "
             "período {periodo} por un valor de ${monto}.\n\n"
             "Adjunto encontrarás el documento PDF.\n\n"
             "Saludos cordiales,\n"
-            "Equipo ATOM"
+            "Equipo ARGUS"
         ),
     },
     {
         "canal": "email",
         "nombre": "factura",
-        "asunto": "Factura {periodo} — ATOM",
+        "asunto": "Factura {periodo} — ARGUS",
         "descripcion": "Correo electrónico al enviar factura",
         "cuerpo": (
             "Estimado/a {nombre},\n\n"
-            "Recibe un cordial saludo de parte de ATOM.\n\n"
+            "Recibe un cordial saludo de parte de ARGUS.\n\n"
             "Adjuntamos a este correo tu factura correspondiente "
             "al período {periodo} por un valor de ${monto}.\n\n"
             "Quedamos atentos a cualquier consulta.\n\n"
             "Atentamente,\n"
-            "Equipo ATOM"
+            "Equipo ARGUS"
         ),
     },
 ]

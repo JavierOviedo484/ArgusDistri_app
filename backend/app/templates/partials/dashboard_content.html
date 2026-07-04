@@ -21,17 +21,23 @@
         <p class="text-[10px] text-slate-500 mt-2">Ruta absoluta en Linux (WSL) — ej: /mnt/c/Users/... o ruta local data/pdfs_entrada</p>
     </div>
 
-    <!-- Barra de acciones masivas (aparece después del escaneo) -->
-    <div id="acciones-masivas" class="hidden mb-4 flex gap-2">
-        <button hx-post="/api/v1/enviar-lote/email" hx-target="#resultado-envio" hx-swap="innerHTML"
+    <!-- Barra de acciones masivas (aparece después del escaneo).
+         Primero se muestra un RESUMEN de verificación; el envío real
+         solo ocurre al presionar "Confirmar envío" en ese resumen. -->
+    <div id="acciones-masivas" class="hidden mb-4 flex gap-2 items-center">
+        <button hx-get="/resumen-envio/email" hx-target="#panel-verificacion" hx-swap="innerHTML"
                 class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium">
             📧 Enviar todo por Email
         </button>
-        <button hx-post="/api/v1/enviar-lote/whatsapp" hx-target="#resultado-envio" hx-swap="innerHTML"
+        <button hx-get="/resumen-envio/whatsapp" hx-target="#panel-verificacion" hx-swap="innerHTML"
                 class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-medium">
             💬 Enviar todo por WhatsApp
         </button>
+        <span class="text-[11px] text-slate-500">Antes de enviar verás la lista de destinatarios para confirmar.</span>
     </div>
+
+    <!-- Panel de verificación pre-envío -->
+    <div id="panel-verificacion"></div>
 
     <!-- Resultado de envío masivo -->
     <div id="resultado-envio"></div>
@@ -60,8 +66,12 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
 });
 
 function borrarTodo() {
-    if (!confirm('⚠️ ¿Estás seguro? Se borrarán todos los colaboradores, facturas y registros de envío. Los PDFs de entrada NO se tocan.')) return;
-    if (!confirm('🔄 ¿Confirmas? Esta acción no se puede deshacer.')) return;
+    const ok = confirm(
+        '⚠️ Esto borrará todos los colaboradores, facturas y registros de envío.\n\n' +
+        'Los PDFs de la carpeta de entrada NO se tocan.\n\n' +
+        'Esta acción no se puede deshacer. ¿Continuar?'
+    );
+    if (!ok) return;
     htmx.ajax('POST', '/borrar-todo', { target: '#resultados', swap: 'innerHTML' });
 }
 </script>

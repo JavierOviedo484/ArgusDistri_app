@@ -129,8 +129,8 @@ class Matcher:
             )
             if colaborador:
                 alertas.append(
-                    f"Se encontró por nombre, no por ID. "
-                    f"Considera registrar el ID {extraido.identificador}"
+                    f"'{colaborador.nombre}' se encontró por nombre, no por ID. "
+                    f"Considera registrar su RUC/cédula en la ficha del colaborador."
                 )
 
         # Si se encontró colaborador, crear factura si no existe

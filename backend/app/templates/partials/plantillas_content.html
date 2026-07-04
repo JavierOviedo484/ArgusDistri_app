@@ -18,7 +18,7 @@
                 <div class="flex gap-2">
                     <button onclick="previewPlantilla({{ p.id }})"
                             class="text-xs text-brand hover:text-brand-light">Vista previa</button>
-                    <button onclick="guardarPlantilla({{ p.id }})"
+                    <button onclick="guardarPlantilla({{ p.id }}, this)"
                             class="btn btn-primary btn-sm">Guardar</button>
                 </div>
             </div>
@@ -62,7 +62,7 @@ function previewPlantilla(id) {
     previewDiv.classList.remove('hidden');
 }
 
-function guardarPlantilla(id) {
+function guardarPlantilla(id, btn) {
     const cuerpo = document.getElementById('cuerpo-' + id).value;
     const asuntoEl = document.getElementById('asunto-' + id);
     const data = { cuerpo: cuerpo };
@@ -74,7 +74,6 @@ function guardarPlantilla(id) {
         body: JSON.stringify(data),
     }).then(r => r.json()).then(() => {
         // feedback visual
-        const btn = event.target;
         const orig = btn.textContent;
         btn.textContent = '✓ Guardado';
         btn.classList.add('bg-green-600');

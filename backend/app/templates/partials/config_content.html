@@ -6,15 +6,25 @@
 
     <div class="space-y-4">
         {% for c in configs %}
+        {% set es_secreto = 'password' in c.clave or 'api_key' in c.clave %}
         <div class="bg-slate-900 rounded-lg border border-slate-800 p-5">
             <div class="flex items-start justify-between">
                 <div class="flex-1">
                     <label class="text-sm font-medium block">{{ c.descripcion or c.clave }}</label>
                     <p class="text-[10px] text-slate-500 uppercase tracking-wider mt-0.5">{{ c.clave }}</p>
-                    <input id="config-{{ c.clave }}" value="{{ c.valor }}"
-                           class="mt-2 w-full bg-slate-800 rounded px-3 py-2 text-sm border border-slate-700 font-mono">
+                    <div class="mt-2 relative">
+                        <input id="config-{{ c.clave }}" value="{{ c.valor }}"
+                               type="{{ 'password' if es_secreto else 'text' }}"
+                               class="w-full bg-slate-800 rounded px-3 py-2 text-sm border border-slate-700 font-mono {% if es_secreto %}pr-16{% endif %}">
+                        {% if es_secreto %}
+                        <button type="button" onclick="verOcultar('{{ c.clave }}', this)"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 hover:text-white px-2 py-1">
+                            Ver
+                        </button>
+                        {% endif %}
+                    </div>
                 </div>
-                <button onclick="guardarConfig('{{ c.clave }}')"
+                <button onclick="guardarConfig('{{ c.clave }}', this)"
                         class="btn btn-primary btn-sm ml-4 shrink-0">
                     Guardar
                 </button>
@@ -29,20 +39,27 @@
             <li>📄 Las facturas se escanean automáticamente de <code class="text-brand">data/pdfs_entrada/</code></li>
             <li>👥 Se cruza el RUC contra la base de colaboradores</li>
             <li>💬 Las plantillas definen el texto que se envía por cada canal</li>
-            <li>📤 El envío real (WhatsApp/email) se integra en una próxima versión</li>
+            <li>📧 El email se envía de verdad por SMTP de Gmail (necesita el App Password de abajo)</li>
+            <li>💬 WhatsApp se envía vía Evolution API (necesita URL + API Key configurados)</li>
         </ul>
     </div>
 </div>
 
 <script>
-function guardarConfig(clave) {
+function verOcultar(clave, btn) {
+    const input = document.getElementById('config-' + clave);
+    const oculto = input.type === 'password';
+    input.type = oculto ? 'text' : 'password';
+    btn.textContent = oculto ? 'Ocultar' : 'Ver';
+}
+
+function guardarConfig(clave, btn) {
     const valor = document.getElementById('config-' + clave).value;
     fetch('/api/v1/config/' + clave, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clave: clave, valor: valor }),
     }).then(r => r.json()).then(() => {
-        const btn = event.target;
         const orig = btn.textContent;
         btn.textContent = '✓ Guardado';
         btn.classList.add('bg-green-600');

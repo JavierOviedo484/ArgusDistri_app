@@ -67,7 +67,15 @@ def init_db():
         if existing == 0:
             for p in PLANTILLAS_DEFAULT:
                 db.add(Plantilla(**p))
-            db.commit()
+        else:
+            # Migración: plantillas ya sembradas con la marca antigua "ATOM"
+            # se actualizan a "ARGUS" (no se tocan si el usuario ya las editó).
+            for p in db.query(Plantilla).filter_by(nombre="factura").all():
+                if p.cuerpo and "ATOM" in p.cuerpo:
+                    p.cuerpo = p.cuerpo.replace("ATOM", "ARGUS")
+                if p.asunto and "ATOM" in p.asunto:
+                    p.asunto = p.asunto.replace("ATOM", "ARGUS")
+        db.commit()
     finally:
         db.close()
 

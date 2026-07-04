@@ -85,9 +85,9 @@ class ExtractorPDF:
             # TELERAPID client RUC: después de "RUC:\n" (sin punto, es cliente)
             r"(?<!\w)RUC:\s*\n\s*(\d{10,13})",
             # OMNI INTEL: RUC del cliente — después de "Razón Social"
-            r"Raz.n Social / Nombres y Apellidos:[\\s\\S]*?\\n(\\d{13})",
+            r"Raz.n Social / Nombres y Apellidos:[\s\S]*?\n(\d{13})",
             # TELERAPID / Ecuador genérico
-            r"[A-Z][A-ZÁÉÍÓÚÑ\\s]{8,}\\n(\\d{10,13})",
+            r"[A-Z][A-ZÁÉÍÓÚÑ\s]{8,}\n(\d{10,13})",
             # Ecuador emisor
             r"RUC\.?\s*:\s*(\d+)",
             # Chile
@@ -95,9 +95,10 @@ class ExtractorPDF:
             r"(?:RUT|Cedula|C\.I\.?)\s*:\s*([\d.]+-[\dkK])",
         ],
         "telefono": [
-            # Teléfono del cliente
-            r"Telefono:\s*(\d+)",
-            r"Tel(?:é|e)fono(?:.*?):\s*(\d+)",
+            # Teléfono del cliente (admite +593, espacios internos, etc.)
+            r"(?<!\d)Telefono:\s*([+\d][\d \-]{5,}\d)",
+            # Variante con tilde, pero NUNCA la línea "Teléfono N:" del emisor
+            r"Tel(?:é|e)fono(?!\s*\d\s*:)(?:.*?):\s*([+\d][\d \-]{5,}\d)",
             # Teléfono del emisor (usar solo si no hay otro)
             r"Tel(?:é|e)fono\s+\d:\s*(\d+)",
         ],
@@ -124,8 +125,8 @@ class ExtractorPDF:
             r"Periodo\s+(.+)",
         ],
         "monto": [
-            # OMNI INTEL / Ecuador: número justo antes de "VALOR TOTAL"
-            r"([\d.,]+)\s*\n\s*VALOR TOTAL",
+            # OMNI INTEL / Ecuador: número justo después de "VALOR TOTAL" (misma línea o la siguiente)
+            r"VALOR TOTAL\s*\$?\s*([\d.,]+)",
             # Valor en línea de Forma de Pago
             r"Sin Utilización Del Sistema Financiero\s+([\d.,]+)",
             # Chile / genérico

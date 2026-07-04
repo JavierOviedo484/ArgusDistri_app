@@ -52,6 +52,14 @@
                         <div class="text-xs text-slate-400 mt-0.5">
                             {{ f.archivo }} · {{ f.periodo }} · <span class="text-cyan-400">${{ f.monto }}</span>
                         </div>
+                        <div class="text-[11px] mt-0.5 flex gap-3">
+                            <span class="{% if f.email %}text-blue-300{% else %}text-amber-400{% endif %}">
+                                ✉️ {{ f.email or 'sin email' }}
+                            </span>
+                            <span class="{% if f.telefono %}text-emerald-300{% else %}text-amber-400{% endif %}">
+                                📱 {{ f.telefono or 'sin teléfono' }}
+                            </span>
+                        </div>
                     </div>
                     <div class="flex gap-1.5 shrink-0 ml-3">
                         <button onclick="abrirPreview({{ f.id }})"
