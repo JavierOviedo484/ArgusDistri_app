@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARGUS · Iniciar Sesión</title>
-    <link rel="icon" type="image/svg+xml" href="/static/logo-argus.svg">
+    <link rel="icon" type="image/png" href="/static/logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,15 +13,16 @@
         body {
             font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
             background: #f8fafc;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
         .login-container {
             width: 100%;
             max-width: 420px;
             padding: 2rem;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
         }
         .login-box {
             background: #ffffff;
@@ -127,7 +128,7 @@
     <div class="login-container">
         <div class="login-box">
             <div class="logo-area">
-                <img src="/static/logo-argus.svg" alt="ARGUS">
+                <img src="/static/logo.png" alt="ARGUS" style="height:120px;width:auto;display:block;margin:0 auto;">
             </div>
 
             {% if error %}

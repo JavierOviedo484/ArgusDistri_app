@@ -1,213 +1,140 @@
-{% if not escaneado and not facturas %}
-<div class="text-center py-16">
-    <p class="text-5xl mb-4 opacity-40">📂</p>
-    <p class="text-slate-400 text-sm">Selecciona la carpeta y presiona <strong class="text-slate-600">Escanear</strong></p>
+<!-- Resultados de escaneo — se inyecta via HTMX en #resultados -->
+{% if escaneado %}
+<div class="card mb-4" style="background:#f0fdf4;border-color:#bbf7d0;">
+    <div class="flex items-center gap-2 text-sm font-bold" style="color:#16a34a;">
+        ✅ Escaneo completado · {{ total }} factura(s) encontrada(s)
+        {% if carpeta %}<span class="text-xs font-normal" style="color:#6b7280;">de <code style="background:#dcfce7;padding:0.1rem 0.4rem;border-radius:3px;">{{ carpeta }}</code></span>{% endif %}
+    </div>
+    {% if fecha_escaneo %}<div class="text-xs mt-0.5" style="color:#6b7280;">{{ fecha_escaneo }}</div>{% endif %}
 </div>
-{% else %}
-<div class="space-y-4">
-    <!-- Metadatos del último escaneo -->
-    {% if escaneado %}
-    <div class="card flex gap-3 items-center text-xs flex-wrap">
-        <span>🕐 Último escaneo: <strong class="text-slate-700">{{ fecha_escaneo }}</strong></span>
-        <span class="text-slate-300">·</span>
-        <span>⏱️ <strong class="text-slate-700">{{ tiempo_total }}s</strong> ({{ tiempo_por_pdf }}s por PDF)</span>
-        {% if carpeta %}
-        <span class="text-slate-300">·</span>
-        <span class="font-mono text-[10px] text-slate-400">{{ carpeta }}</span>
-        {% endif %}
-    </div>
-    {% endif %}
+{% endif %}
 
-    <!-- Resumen números -->
-    <div class="grid grid-cols-4 gap-3">
-        <div class="card py-3 px-3 text-center">
-            <div class="text-2xl font-bold" style="color:#059669;">{{ total }}</div>
-            <div class="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Total PDFs</div>
-        </div>
-        <div class="card py-3 px-3 text-center">
-            <div class="text-2xl font-bold" style="color:#059669;">{{ facturas|length }}</div>
-            <div class="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Asignadas</div>
-        </div>
-        <div class="card py-3 px-3 text-center">
-            <div class="text-2xl font-bold" style="color:#d97706;">{{ sin_dueno|length }}</div>
-            <div class="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Sin dueño</div>
-        </div>
-        <div class="card py-3 px-3 text-center">
-            <div class="text-2xl font-bold" style="color:#ef4444;">{{ errores|length }}</div>
-            <div class="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Errores</div>
-        </div>
-    </div>
+{% if alertas %}
+<div class="card mb-4" style="background:#fefce8;border-color:#fde68a;">
+    <div class="text-sm font-bold" style="color:#a16207;">⚠️ Alertas</div>
+    <ul class="mt-1.5 space-y-0.5">
+        {% for a in alertas %}
+        <li class="text-xs" style="color:#713f12;">· {{ a }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
 
-    <!-- Progreso de envíos -->
-    {% if facturas %}
-    {% set n = facturas|length %}
-    {% set ne = facturas|selectattr('enviado_email')|list|length %}
-    {% set nw = facturas|selectattr('enviado_whatsapp')|list|length %}
-    {% set ns = facturas|selectattr('enviado_sms')|list|length %}
-    <div class="card flex gap-4 items-center text-xs flex-wrap">
-        <span class="font-bold text-slate-700">Estado de envíos:</span>
-        <span>📧 <strong style="color:{{ '#059669' if ne == n else '#b45309' }};">{{ ne }}/{{ n }}</strong> email</span>
-        <span>💬 <strong style="color:{{ '#059669' if nw == n else '#b45309' }};">{{ nw }}/{{ n }}</strong> WhatsApp</span>
-        <span>📨 <strong style="color:{{ '#059669' if ns == n else '#b45309' }};">{{ ns }}/{{ n }}</strong> SMS</span>
-        {% if ne == n %}<span class="px-2 py-0.5 rounded-full font-bold" style="background:#d1fae5;color:#047857;">✅ Email completo</span>{% endif %}
-        {% if nw == n %}<span class="px-2 py-0.5 rounded-full font-bold" style="background:#d1fae5;color:#047857;">✅ WhatsApp completo</span>{% endif %}
-        {% if ns == n %}<span class="px-2 py-0.5 rounded-full font-bold" style="background:#d1fae5;color:#047857;">✅ SMS completo</span>{% endif %}
-    </div>
-    {% endif %}
-
-    <!-- Panel preview -->
-    <div id="preview-panel"></div>
-
-    <!-- Facturas -->
-    {% if facturas %}
-    <div id="lista-facturas">
-        <h3 class="text-sm font-bold text-slate-700 mb-2">📋 Facturas ({{ facturas|length }})</h3>
-        <div class="space-y-3">
-            {% for grupo in facturas|groupby('colaborador_nombre') %}
-            {% set nombre = grupo.grouper %}
-            {% set cols = grupo.list %}
-            {% set f0 = cols[0] %}
-            <!-- Cabecera del colaborador -->
-            <div class="card" style="background:#f1f5f9;border-color:#cbd5e1;">
-                <div class="flex items-center justify-between gap-3 flex-wrap">
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm font-bold text-slate-800">{{ nombre }}</div>
-                        <div class="text-[11px] text-slate-500 mt-0.5">
-                            {% if f0.email %}<span>✉️ {{ f0.email }}</span>{% endif %}
-                            {% if f0.telefono %}<span class="ml-3">📱 {{ f0.telefono }}</span>{% endif %}
-                            <span class="ml-3 text-slate-400">{{ cols|length }} factura(s)</span>
-                        </div>
-                    </div>
-                    <div class="flex gap-1.5 flex-wrap shrink-0">
-                        {% set enviados_email = cols|selectattr('enviado_email','equalto',True)|list %}
-                        {% set enviados_wp = cols|selectattr('enviado_whatsapp','equalto',True)|list %}
-                        {% set enviados_sms = cols|selectattr('enviado_sms','equalto',True)|list %}
-                        {% if enviados_email %}
-                        <span class="text-[11px] px-2 py-0.5 rounded font-semibold" style="background:#dbeafe;color:#1e40af;"
-                              title="Enviados por email">📧 {{ enviados_email|length }}</span>
+{% if facturas %}
+<div class="card p-0 overflow-hidden">
+    <table class="w-full text-sm">
+        <thead>
+            <tr style="background:#f1f5f9;color:#374151;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">
+                <th class="text-left px-3 py-2.5">Colaborador</th>
+                <th class="text-left px-3 py-2.5">Archivo</th>
+                <th class="text-left px-3 py-2.5">Período</th>
+                <th class="text-right px-3 py-2.5">Monto</th>
+                <th class="text-center px-3 py-2.5">Email</th>
+                <th class="text-center px-3 py-2.5">WhatsApp</th>
+                <th class="text-center px-3 py-2.5">SMS</th>
+                <th class="text-center px-3 py-2.5">Enviar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in facturas %}
+            <tr class="border-t border-gray-100 hover:bg-gray-50/60" data-factura-id="{{ f.id }}">
+                <td class="px-3 py-2.5">
+                    <div class="font-semibold">{{ f.colaborador_nombre }}</div>
+                    <div class="text-xs" style="color:#6b7280;">{{ f.colaborador_id }}</div>
+                </td>
+                <td class="px-3 py-2.5">
+                    <div class="text-xs font-mono" style="color:#374151;">{{ f.archivo or '' }}</div>
+                </td>
+                <td class="px-3 py-2.5 whitespace-nowrap">{{ f.periodo }}</td>
+                <td class="px-3 py-2.5 text-right font-mono font-semibold" style="color:#0891b2;">${{ f.monto }}</td>
+                <td class="px-3 py-2.5 text-center">
+                    {% if f.email %}
+                        {% if f.enviado_email %}
+                        <span class="badge" style="background:#dcfce7;color:#16a34a;">✅ Enviado</span>
+                        {% elif f.error_email %}
+                        <span class="badge" style="background:#fef2f2;color:#dc2626;" title="{{ f.error_email }}">❌ Falló</span>
+                        {% else %}
+                        <span class="badge" style="background:#f1f5f9;color:#64748b;">Pendiente</span>
                         {% endif %}
-                        {% if enviados_wp %}
-                        <span class="text-[11px] px-2 py-0.5 rounded font-semibold" style="background:#d1fae5;color:#065f46;"
-                              title="Enviados por WhatsApp">💬 {{ enviados_wp|length }}</span>
-                        {% endif %}
-                        {% if enviados_sms %}
-                        <span class="text-[11px] px-2 py-0.5 rounded font-semibold" style="background:#e5e4f0;color:#5b21b6;"
-                              title="Enviados por SMS">📨 {{ enviados_sms|length }}</span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            <!-- Facturas individuales de este colaborador -->
-            <div class="space-y-1.5 ml-2">
-                {% for f in cols %}
-                <div class="card card-hover">
-                    <div class="flex items-center justify-between gap-3">
-                        <div class="flex-1 min-w-0">
-                            <div class="text-xs text-slate-500 mt-0.5">
-                                {{ f.archivo }} · {{ f.periodo }} · <span class="font-semibold" style="color:#2563eb;">${{ f.monto }}</span>
-                            </div>
-                            <div class="text-[11px] mt-1.5 flex gap-1.5 flex-wrap">
-                                {% for icono, enviado, error, dest in [
-                                    ('📧', f.enviado_email, f.error_email, f.email),
-                                    ('💬', f.enviado_whatsapp, f.error_whatsapp, f.telefono),
-                                    ('📨', f.enviado_sms, f.error_sms, f.telefono),
-                                ] %}
-                                {% if enviado %}
-                                <span class="px-1.5 py-0.5 rounded font-bold" style="background:#d1fae5;color:#047857;">{{ icono }} ✓</span>
-                                {% elif error %}
-                                <span class="px-1.5 py-0.5 rounded font-bold cursor-help" style="background:#fee2e2;color:#b91c1c;"
-                                      title="{{ error|e }}">{{ icono }} ✗ ⓘ</span>
-                                {% elif dest %}
-                                <span class="px-1.5 py-0.5 rounded" style="background:#f1f5f9;color:#94a3b8;">{{ icono }} pendiente</span>
-                                {% else %}
-                                <span class="px-1.5 py-0.5 rounded" style="background:#fef3c7;color:#92400e;">{{ icono }} sin datos</span>
-                                {% endif %}
-                                {% endfor %}
-                            </div>
-                        </div>
-                        <div class="flex gap-1 shrink-0">
-                            <button onclick="abrirPreview({{ f.id }})" class="btn btn-ghost btn-sm">👁️ Ver</button>
-                            {% if not f.enviado_email %}
-                            <button hx-post="/api/v1/enviar/email/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
-                                    hx-confirm="¿Enviar por EMAIL a {{ f.email }}?"
-                                    class="btn btn-sm" style="{% if f.email %}background:#2563eb;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
-                                    {% if not f.email %}disabled{% endif %}>📧</button>
-                            {% endif %}
-                            {% if not f.enviado_whatsapp %}
-                            <button hx-post="/api/v1/enviar/whatsapp/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
-                                    hx-confirm="¿Enviar por WHATSAPP a {{ f.telefono }}?"
-                                    class="btn btn-sm" style="{% if f.telefono %}background:#059669;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
-                                    {% if not f.telefono %}disabled{% endif %}>💬</button>
-                            {% endif %}
-                            {% if not f.enviado_sms %}
-                            <button hx-post="/api/v1/enviar/sms/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
-                                    hx-confirm="¿Enviar SMS a {{ f.telefono }}?"
-                                    class="btn btn-sm" style="{% if f.telefono %}background:#6d28d9;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
-                                    {% if not f.telefono %}disabled{% endif %}>📨</button>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Sin dueño -->
-    {% if sin_dueno %}
-    <div>
-        <h3 class="text-sm font-bold" style="color:#d97706; margin-bottom:0.5rem;">⚠️ Sin dueño — haz clic para ver datos y registrar ({{ sin_dueno|length }})</h3>
-        <div class="space-y-1">
-            {% for r in sin_dueno %}
-            <div onclick="abrirSinDueno('{{ r.archivo }}')"
-                 class="card card-hover flex items-center justify-between cursor-pointer">
-                <div>
-                    <div class="text-sm font-medium text-slate-700">{{ r.archivo }}</div>
-                    {% if r.nombre_extraido %}
-                    <div class="text-xs text-slate-400">{{ r.nombre_extraido }}</div>
+                    {% else %}
+                        <span class="badge" style="background:#fef2f2;color:#dc2626;">Sin email</span>
                     {% endif %}
-                </div>
-                <div class="text-slate-400 text-sm">👁️ Ver datos →</div>
-            </div>
+                </td>
+                <td class="px-3 py-2.5 text-center">
+                    {% if f.telefono %}
+                        {% if f.enviado_whatsapp %}
+                        <span class="badge" style="background:#dcfce7;color:#16a34a;">✅ Enviado</span>
+                        {% elif f.error_whatsapp %}
+                        <span class="badge" style="background:#fef2f2;color:#dc2626;" title="{{ f.error_whatsapp }}">❌ Falló</span>
+                        {% else %}
+                        <span class="badge" style="background:#f1f5f9;color:#64748b;">Pendiente</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge" style="background:#fef2f2;color:#dc2626;">Sin teléfono</span>
+                    {% endif %}
+                </td>
+                <td class="px-3 py-2.5 text-center">
+                    {% if f.telefono %}
+                        {% if f.enviado_sms %}
+                        <span class="badge" style="background:#dcfce7;color:#16a34a;">✅ Enviado</span>
+                        {% elif f.error_sms %}
+                        <span class="badge" style="background:#fef2f2;color:#dc2626;" title="{{ f.error_sms }}">❌ Falló</span>
+                        {% else %}
+                        <span class="badge" style="background:#f1f5f9;color:#64748b;">Pendiente</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge" style="background:#fef2f2;color:#dc2626;">Sin teléfono</span>
+                    {% endif %}
+                </td>
+                <td class="px-3 py-2.5 text-center">
+                    {% if f.email and not f.enviado_email %}
+                    <button
+                        hx-post="/api/v1/enviar/email/{{ f.id }}"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                        hx-indicator="closest tr"
+                        class="btn btn-primary btn-sm"
+                        title="Enviar por email"
+                    >📧</button>
+                    {% endif %}
+                    {% if f.telefono and not f.enviado_whatsapp %}
+                    <button
+                        hx-post="/api/v1/enviar/whatsapp/{{ f.id }}"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                        hx-indicator="closest tr"
+                        class="btn btn-sm"
+                        style="background:#059669;color:white;"
+                        title="Enviar por WhatsApp"
+                    >💬</button>
+                    {% endif %}
+                </td>
+            </tr>
             {% endfor %}
-        </div>
-    </div>
-    {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 
-    <!-- Errores -->
-    {% if errores %}
-    <div>
-        <h3 class="text-sm font-bold" style="color:#ef4444; margin-bottom:0.5rem;">❌ Errores ({{ errores|length }})</h3>
-        <div class="space-y-1">
-            {% for r in errores %}
-            <div class="card" style="background:#fef2f2;border-color:#fecaca;">
-                <div class="text-sm text-slate-700">{{ r.archivo }}</div>
-                <div class="text-xs" style="color:#dc2626;">{{ r.error }}</div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Alertas — resumen colapsable al final -->
-    {% if alertas %}
-    <div class="card" style="background:#f8fafc;border-color:#e2e8f0;">
-        <div onclick="this.nextElementSibling.classList.toggle('hidden')"
-             class="flex items-center justify-between cursor-pointer select-none">
-            <div class="flex items-center gap-2">
-                <span style="font-size:1.1rem;">⚠️</span>
-                <span class="text-sm font-semibold text-slate-700">{{ alertas|length }} alerta(s)</span>
-            </div>
-            <span class="text-slate-400 text-sm" id="alertas-toggle">▼ Ver</span>
-        </div>
-        <div class="hidden mt-3 space-y-1.5 border-t border-slate-200 pt-3">
-            {% for a in alertas %}
-            <div class="text-sm" style="color:#92400e;">⚠️ {{ a }}</div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
+{% if escaneado and facturas|length > 0 %}
+<div class="mt-4 flex flex-wrap gap-2">
+    <button
+        hx-get="/resumen-envio/email"
+        hx-target="#resultado-envio"
+        hx-swap="innerHTML"
+        class="btn btn-sm" style="background:#2563eb;color:white;"
+    >📧 Enviar todo por Email</button>
+    <button
+        hx-get="/resumen-envio/whatsapp"
+        hx-target="#resultado-envio"
+        hx-swap="innerHTML"
+        class="btn btn-sm" style="background:#059669;color:white;"
+    >💬 Enviar todo por WhatsApp</button>
+    <button
+        hx-get="/resumen-envio/sms"
+        hx-target="#resultado-envio"
+        hx-swap="innerHTML"
+        class="btn btn-sm" style="background:#7c3aed;color:white;"
+    >📨 Enviar todo por SMS</button>
 </div>
 {% endif %}

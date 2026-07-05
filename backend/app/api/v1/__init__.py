@@ -265,3 +265,121 @@ def actualizar_config(clave: str, data: ConfigUpdate, db: Session = Depends(get_
     db.commit()
     return {"clave": c.clave, "valor": c.valor}
 
+
+# ─── ENVÍO EN LOTE (Email / WhatsApp / SMS) ──────────────────────
+
+
+@router.post("/enviar-lote/{canal}")
+def enviar_lote(canal: str, db: Session = Depends(get_db)):
+    """
+    Envía todas las facturas pendientes por el canal indicado.
+    Devuelve HTML para HTMX (swap en #resultado-envio).
+    """
+    import os as _os
+    from app.services.email_sender import enviar_email
+    from app.services.whatsapp_sender import enviar_whatsapp
+    from app.services.sms_sender import enviar_sms
+
+    if canal not in ("email", "whatsapp", "sms"):
+        return HTMLResponse("<div class='text-red-400 text-sm'>Canal inválido</div>")
+
+    # Columnas según canal
+    col_enviado = {
+        "email": Factura.enviado_email,
+        "whatsapp": Factura.enviado_whatsapp,
+        "sms": Factura.enviado_sms,
+    }
+    col_destino = {
+        "email": Colaborador.email,
+        "whatsapp": Colaborador.telefono,
+        "sms": Colaborador.telefono,
+    }
+
+    facturas = (
+        db.query(Factura)
+        .filter(col_enviado[canal] == False)
+        .all()
+    )
+
+    if not facturas:
+        return HTMLResponse(
+            "<div class='card' style='background:#f0fdf4;border-color:#bbf7d0;margin-bottom:1rem;'>"
+            "<div class='text-sm font-bold' style='color:#16a34a;'>📭 No hay facturas pendientes de enviar.</div></div>"
+        )
+
+    enviados = 0
+    fallidos = 0
+    errores = []
+
+    for f in facturas:
+        colab = db.query(Colaborador).filter_by(identificador=f.colaborador_id).first()
+        if not colab:
+            fallidos += 1
+            errores.append(f"Factura #{f.id}: sin colaborador")
+            continue
+
+        destino = getattr(colab, col_destino[canal].key, "")
+        if not destino or destino == "sin correo":
+            fallidos += 1
+            errores.append(f"{colab.nombre}: sin {'email' if canal == 'email' else 'teléfono'}")
+            continue
+
+        pdf_path = Path(f.ruta_pdf) if f.ruta_pdf else None
+
+        if canal == "email":
+            result = enviar_email(
+                para=destino,
+                asunto=f"📄 Documento {f.archivo_original or ''} · {f.periodo or ''}",
+                cuerpo=f"Hola {colab.nombre},\n\nAdjuntamos su documento correspondiente al período {f.periodo} por un monto de ${f.monto}.\n\nAtentamente,\nARGUS · Distribuidor de Documentos",
+                adjunto_pdf=pdf_path if (pdf_path and pdf_path.exists()) else None,
+                smtp_user=_os.environ.get("EMAIL_SENDER", ""),
+                smtp_password=_os.environ.get("GMAIL_APP_PASSWORD", ""),
+            )
+
+        elif canal == "whatsapp":
+            config = {c.clave: c.valor for c in db.query(Configuracion).all()}
+            result = enviar_whatsapp(
+                numero=destino,
+                mensaje=f"Hola {colab.nombre}, reciba su documento del período {f.periodo} por ${f.monto}.",
+                api_url=config.get("whatsapp_api_url", ""),
+                api_key=config.get("whatsapp_api_key", ""),
+                instance=config.get("whatsapp_instance", "argus"),
+                adjunto_pdf=pdf_path if (pdf_path and pdf_path.exists()) else None,
+            )
+
+        else:  # sms
+            config = {c.clave: c.valor for c in db.query(Configuracion).all()}
+            result = enviar_sms(
+                numero=destino,
+                mensaje=f"{colab.nombre}, su documento {f.periodo} por ${f.monto} está listo. ARGUS.",
+                api_url=config.get("sms_api_url", ""),
+                api_key=config.get("sms_api_key", ""),
+            )
+
+        if result.get("ok"):
+            setattr(f, col_enviado[canal].key, True)
+            enviados += 1
+        else:
+            fallidos += 1
+            errores.append(f"{colab.nombre}: {result.get('mensaje', 'error')}")
+
+    db.commit()
+
+    # HTML respuesta
+    if fallidos == 0:
+        html = (
+            "<div class='card' style='background:#f0fdf4;border-color:#bbf7d0;margin-bottom:1rem;'>"
+            f"<div class='text-sm font-bold' style='color:#16a34a;'>✅ {enviados} factura(s) enviadas correctamente por {'email' if canal == 'email' else ('WhatsApp' if canal == 'whatsapp' else 'SMS')}.</div>"
+            "</div>"
+        )
+    else:
+        detalle = "".join(f"<li>{e}</li>" for e in errores[:10])
+        html = (
+            "<div class='card' style='background:#fef2f2;border-color:#fecaca;margin-bottom:1rem;'>"
+            f"<div class='text-sm font-bold' style='color:#dc2626;'>⚠️ {enviados} enviadas, {fallidos} fallos</div>"
+            f"<ul class='text-xs mt-1' style='color:#991b1b;'>{detalle}</ul>"
+            "</div>"
+        )
+
+    return HTMLResponse(html)
+

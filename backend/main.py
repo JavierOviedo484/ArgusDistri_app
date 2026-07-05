@@ -22,7 +22,7 @@ from app.core.database import init_db, get_db
 from app.api.v1 import router as api_router
 from app.schemas import ColaboradorCreate
 
-app = FastAPI(title="Argus · Distribuidor de Documentos", version="1.0.0")
+app = FastAPI(title="Argus · Distribuidor de Documentos", version="1.0.0", max_body_size=100_000_000)
 
 # ─── Sesión simple (en memoria) ────────────────────────────
 SESSION_TOKENS: dict[str, float] = {}  # token -> expires_at
@@ -85,6 +85,10 @@ app.include_router(api_router, prefix="/api/v1")
 # ─── Autenticación por formulario ──────────────────────────
 ARGUS_USERNAME = os.getenv("ARGUS_USERNAME", "admin")
 ARGUS_PASSWORD = os.getenv("ARGUS_PASSWORD", "argus2026")
+
+# ─── Email SMTP (Gmail App Password) ────────────────────────
+EMAIL_SENDER = os.getenv("EMAIL_SENDER", "")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 
 
 @app.middleware("http")
@@ -424,18 +428,30 @@ async def escanear_subir(request: Request, db: Session = Depends(get_db)):
     from app.services.matcher import Matcher
     from fastapi import UploadFile
 
-    form = await request.form()
-    files: list[UploadFile] = [v for v in form.values() if isinstance(v, UploadFile) and v.filename]
+    try:
+        form = await request.form()
+    except Exception as e:
+        return HTMLResponse(f"<div class='text-red-400 text-sm p-4'>Error al leer formulario: {e}</div>")
+
+    # Extraer TODOS los archivos (duck-typing: object con .read() y .filename)
+    files: list[tuple[str, bytes]] = []
+    for key, value in form.multi_items():
+        if hasattr(value, 'read') and hasattr(value, 'filename') and value.filename:
+            try:
+                content = await value.read()
+                if content and value.filename.lower().endswith(".pdf"):
+                    fname = (value.filename or "file.pdf").split("/")[-1]
+                    files.append((fname, content))
+            except Exception:
+                continue
+
     if not files:
-        return HTMLResponse("<div class='text-red-400 text-sm p-4'>No se recibieron archivos</div>")
+        return HTMLResponse(f"<div class='text-red-400 text-sm p-4'>No se recibieron archivos PDF</div>")
 
     # Guardar PDFs en carpeta temporal
     temp_dir = Path(tempfile.mkdtemp(prefix="argus_upload_"))
-    for f in files:
-        contenido = await f.read()
-        nombre_limpio = (f.filename or "file.pdf").split("/")[-1]
-        if nombre_limpio.lower().endswith(".pdf"):
-            (temp_dir / nombre_limpio).write_bytes(contenido)
+    for nombre, content in files:
+        (temp_dir / nombre).write_bytes(content)
 
     t0 = _time.time()
     matcher = Matcher(temp_dir, db)

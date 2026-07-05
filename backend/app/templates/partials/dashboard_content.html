@@ -36,9 +36,10 @@
                             class="btn btn-sm btn-ghost whitespace-nowrap" type="button">
                         📁 Browse PC
                     </button>
+                    <span id="upload-status" class="text-xs hidden"></span>
                 </div>
             </div>
-            <button hx-post="/escaneo-html" hx-include="#carpeta-input" hx-target="#resultados"
+            <button id="btn-escanear" hx-post="/escaneo-html" hx-include="#carpeta-input" hx-target="#resultados"
                     hx-swap="innerHTML" hx-indicator="#spinner"
                     class="btn btn-primary">
                 🔍 Escanear
@@ -108,8 +109,15 @@ function uploadFolder(input) {
         return;
     }
     const folderName = pdfs[0].webkitRelativePath.split('/')[0];
-    const inputEl = document.getElementById('carpeta-input');
-    inputEl.value = '📁 ' + folderName + ' (' + pdfs.length + ' PDFs)';
+
+    // Mostrar status — NO tocamos el input de ruta
+    const status = document.getElementById('upload-status');
+    const spinner = document.getElementById('spinner');
+    const btn = document.getElementById('btn-escanear');
+    status.className = 'text-xs text-blue-600 font-medium';
+    status.textContent = '📤 Subiendo ' + pdfs.length + ' PDFs...';
+    if (spinner) spinner.classList.remove('hidden');
+    if (btn) btn.disabled = true;
 
     const formData = new FormData();
     formData.append('carpeta_nombre', folderName);
@@ -117,19 +125,29 @@ function uploadFolder(input) {
         formData.append('pdfs', pdf, pdf.webkitRelativePath);
     }
 
-    const spinner = document.getElementById('spinner');
-    if (spinner) spinner.classList.remove('hidden');
-
-    fetch('/escanear-subir', { method: 'POST', body: formData })
-        .then(r => r.text())
-        .then(html => {
-            document.getElementById('resultados').innerHTML = html;
-            input.value = '';
-            if (spinner) spinner.classList.add('hidden');
-        })
-        .catch(e => {
-            alert('Error al subir archivos: ' + e.message);
-            if (spinner) spinner.classList.add('hidden');
-        });
+    fetch('/escanear-subir', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+    })
+    .then(async r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+    })
+    .then(html => {
+        document.getElementById('resultados').innerHTML = html;
+        status.className = 'text-xs text-green-600 font-medium';
+        status.textContent = '✅ ' + pdfs.length + ' PDFs escaneados desde ' + folderName;
+        setTimeout(() => { status.className = 'text-xs hidden'; }, 5000);
+        input.value = '';
+        if (spinner) spinner.classList.add('hidden');
+        if (btn) btn.disabled = false;
+    })
+    .catch(e => {
+        status.className = 'text-xs text-red-500 font-medium';
+        status.textContent = '❌ Error: ' + e.message;
+        if (spinner) spinner.classList.add('hidden');
+        if (btn) btn.disabled = false;
+    });
 }
 </script>
