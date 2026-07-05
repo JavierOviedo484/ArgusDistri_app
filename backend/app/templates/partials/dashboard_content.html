@@ -182,6 +182,9 @@ document.body.addEventListener('htmx:afterRequest', function(evt) {
     var hxGet = el.getAttribute('hx-get') || '';
     var path = hxPost || hxGet;
 
+    // Para envío individual (api/v1/enviar/) el backend envía mostrarToast preciso
+    if (path.indexOf('/api/v1/enviar/') !== -1) return;
+
     var canal = '';
     if (path.indexOf('email') !== -1) canal = 'Email';
     else if (path.indexOf('whatsapp') !== -1) canal = 'WhatsApp';
@@ -204,4 +207,10 @@ function mostrarToast(html, bgClass) {
         el.innerHTML = '';
     }, 4500);
 }
+
+// Escuchar evento mostrarToast desde HX-Trigger del backend
+document.body.addEventListener('mostrarToast', function(evt) {
+    var bg = evt.detail.tipo === 'exito' ? 'bg-emerald-600' : 'bg-red-600';
+    mostrarToast(evt.detail.mensaje, bg);
+});
 </script>

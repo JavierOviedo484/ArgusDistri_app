@@ -67,21 +67,21 @@
                 </button>
                 {% if f.email and not f.enviado_email %}
                 <button hx-post="/api/v1/enviar/email/{{ f.id }}"
-                        hx-target="closest .card" hx-swap="outerHTML"
+                        hx-swap="none"
                         hx-on::before-request="this.disabled=true;this.innerHTML='⏳'"
                         class="btn btn-sm" style="background:#2563eb;color:white;font-size:0.75rem;padding:0.35rem 0.6rem;"
                         title="Enviar por email">📧</button>
                 {% endif %}
                 {% if f.telefono and not f.enviado_whatsapp %}
                 <button hx-post="/api/v1/enviar/whatsapp/{{ f.id }}"
-                        hx-target="closest .card" hx-swap="outerHTML"
+                        hx-swap="none"
                         hx-on::before-request="this.disabled=true;this.innerHTML='⏳'"
                         class="btn btn-sm" style="background:#059669;color:white;font-size:0.75rem;padding:0.35rem 0.6rem;"
                         title="Enviar por WhatsApp">💬</button>
                 {% endif %}
                 {% if f.telefono and not f.enviado_sms %}
                 <button hx-post="/api/v1/enviar/sms/{{ f.id }}"
-                        hx-target="closest .card" hx-swap="outerHTML"
+                        hx-swap="none"
                         hx-on::before-request="this.disabled=true;this.innerHTML='⏳'"
                         class="btn btn-sm" style="background:#7c3aed;color:white;font-size:0.75rem;padding:0.35rem 0.6rem;"
                         title="Enviar por SMS">📨</button>

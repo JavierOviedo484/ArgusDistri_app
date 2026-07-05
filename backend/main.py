@@ -5,6 +5,7 @@ Correr con: uvicorn main:app --reload
 
 import sys
 import os
+import json
 import secrets
 import hashlib
 import time
@@ -255,10 +256,10 @@ def preview_factura(request: Request, factura_id: int, db: Session = Depends(get
 
     # Re-extraer datos del PDF
     from app.services.pdf_extractor import ExtractorPDF
-    pdf_path = Path(factura.ruta_pdf)
+    pdf_path = Path(factura.ruta_pdf) if factura.ruta_pdf else None
     extraido = {}
     texto_pdf = ""
-    if pdf_path.exists():
+    if pdf_path and pdf_path.exists():
         extractor = ExtractorPDF()
         resultado = extractor.extraer_datos(pdf_path)
         extraido = resultado.dict()
@@ -395,7 +396,7 @@ def escaneo_html(
 
     # Persistir metadatos del escaneo: la vista sobrevive navegación y reinicios
     ULTIMO_ESCANEO_JSON.parent.mkdir(parents=True, exist_ok=True)
-    ULTIMO_ESCANEO_JSON.write_text(_json.dumps({
+    ULTIMO_ESCANEO_JSON.write_text(json.dumps({
         "carpeta": str(carpeta_path),
         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "total": len(resultados),
@@ -477,7 +478,7 @@ async def escanear_subir(request: Request, db: Session = Depends(get_db)):
 
     # Persistir metadatos
     ULTIMO_ESCANEO_JSON.parent.mkdir(parents=True, exist_ok=True)
-    ULTIMO_ESCANEO_JSON.write_text(_json.dumps({
+    ULTIMO_ESCANEO_JSON.write_text(json.dumps({
         "carpeta": carpeta_nombre + " (subido desde PC)",
         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "total": len(resultados),
@@ -495,6 +496,22 @@ async def escanear_subir(request: Request, db: Session = Depends(get_db)):
         ],
         "alertas": alertas,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    # Copiar PDFs a almacenamiento permanente (sobrevive reinicios)
+    ALMACEN_PDFS.mkdir(parents=True, exist_ok=True)
+    for fact in db.query(FacturaModel).filter(
+        FacturaModel.ruta_pdf.like(f"{temp_dir}%")
+    ).all():
+        src = Path(fact.ruta_pdf)
+        if src.exists():
+            dst = ALMACEN_PDFS / src.name
+            c = 1
+            while dst.exists():
+                dst = ALMACEN_PDFS / f"{src.stem}_{c}{src.suffix}"
+                c += 1
+            shutil.copy2(src, dst)
+            fact.ruta_pdf = str(dst)
+    db.commit()
 
     return _render_resultados(request, db)
 
@@ -536,11 +553,15 @@ def enviar_email_individual(factura_id: int, request: Request, db: Session = Dep
 
     factura = db.query(FacturaModel).filter_by(id=factura_id).first()
     if not factura:
-        return HTMLResponse("<div class='text-red-400 text-sm'>Factura no encontrada</div>")
+        return HTMLResponse("", headers={"HX-Trigger": json.dumps({
+            "mostrarToast": {"mensaje": "❌ Factura no encontrada", "tipo": "error"}
+        })})
 
     colab = db.query(ColaboradorModel).filter_by(identificador=factura.colaborador_id).first()
     if not colab or not colab.email:
-        return HTMLResponse("<div class='text-red-400 text-sm'>Colaborador sin email</div>")
+        return HTMLResponse("", headers={"HX-Trigger": json.dumps({
+            "mostrarToast": {"mensaje": "❌ Colaborador sin email", "tipo": "error"}
+        })})
 
     plantilla = db.query(Plantilla).filter_by(canal="email", activo=True).first()
     configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
@@ -574,12 +595,14 @@ def enviar_email_individual(factura_id: int, request: Request, db: Session = Dep
         factura.enviado_email = True
     db.commit()
 
-    css = "text-emerald-400" if resultado["ok"] else "text-red-400"
     icono = "✅" if resultado["ok"] else "❌"
-    return HTMLResponse(
-        f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>",
-        headers={"HX-Trigger": "refrescarFacturas"},
-    )
+    return HTMLResponse("", headers={"HX-Trigger": json.dumps({
+        "refrescarFacturas": True,
+        "mostrarToast": {
+            "mensaje": f"{icono} {resultado['mensaje']}",
+            "tipo": "exito" if resultado["ok"] else "error"
+        }
+    })})
 
 
 @app.post("/api/v1/enviar/whatsapp/{factura_id}")
@@ -594,11 +617,15 @@ def enviar_whatsapp_individual(factura_id: int, request: Request, db: Session = 
 
     factura = db.query(FacturaModel).filter_by(id=factura_id).first()
     if not factura:
-        return HTMLResponse("<div class='text-red-400 text-sm'>Factura no encontrada</div>")
+        return HTMLResponse("", headers={"HX-Trigger": json.dumps({
+            "mostrarToast": {"mensaje": "❌ Factura no encontrada", "tipo": "error"}
+        })})
 
     colab = db.query(ColaboradorModel).filter_by(identificador=factura.colaborador_id).first()
     if not colab or not colab.telefono:
-        return HTMLResponse("<div class='text-red-400 text-sm'>Colaborador sin teléfono</div>")
+        return HTMLResponse("", headers={"HX-Trigger": json.dumps({
+            "mostrarToast": {"mensaje": "❌ Colaborador sin teléfono", "tipo": "error"}
+        })})
 
     plantilla = db.query(Plantilla).filter_by(canal="whatsapp", activo=True).first()
     configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
@@ -629,12 +656,14 @@ def enviar_whatsapp_individual(factura_id: int, request: Request, db: Session = 
         factura.enviado_whatsapp = True
     db.commit()
 
-    css = "text-emerald-400" if resultado["ok"] else "text-red-400"
     icono = "✅" if resultado["ok"] else "❌"
-    return HTMLResponse(
-        f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>",
-        headers={"HX-Trigger": "refrescarFacturas"},
-    )
+    return HTMLResponse("", headers={"HX-Trigger": json.dumps({
+        "refrescarFacturas": True,
+        "mostrarToast": {
+            "mensaje": f"{icono} {resultado['mensaje']}",
+            "tipo": "exito" if resultado["ok"] else "error"
+        }
+    })})
 
 
 @app.post("/api/v1/enviar/sms/{factura_id}")
@@ -649,11 +678,15 @@ def enviar_sms_individual(factura_id: int, request: Request, db: Session = Depen
 
     factura = db.query(FacturaModel).filter_by(id=factura_id).first()
     if not factura:
-        return HTMLResponse("<div class='text-red-400 text-sm'>Factura no encontrada</div>")
+        return HTMLResponse("", headers={"HX-Trigger": json.dumps({
+            "mostrarToast": {"mensaje": "❌ Factura no encontrada", "tipo": "error"}
+        })})
 
     colab = db.query(ColaboradorModel).filter_by(identificador=factura.colaborador_id).first()
     if not colab or not colab.telefono:
-        return HTMLResponse("<div class='text-red-400 text-sm'>Colaborador sin teléfono</div>")
+        return HTMLResponse("", headers={"HX-Trigger": json.dumps({
+            "mostrarToast": {"mensaje": "❌ Colaborador sin teléfono", "tipo": "error"}
+        })})
 
     plantilla = db.query(Plantilla).filter_by(canal="sms", activo=True).first()
     configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
@@ -681,12 +714,14 @@ def enviar_sms_individual(factura_id: int, request: Request, db: Session = Depen
         factura.enviado_sms = True
     db.commit()
 
-    css = "text-emerald-400" if resultado["ok"] else "text-red-400"
     icono = "✅" if resultado["ok"] else "❌"
-    return HTMLResponse(
-        f"<div class='{css} text-sm mt-2'>{icono} {resultado['mensaje']}</div>",
-        headers={"HX-Trigger": "refrescarFacturas"},
-    )
+    return HTMLResponse("", headers={"HX-Trigger": json.dumps({
+        "refrescarFacturas": True,
+        "mostrarToast": {
+            "mensaje": f"{icono} {resultado['mensaje']}",
+            "tipo": "exito" if resultado["ok"] else "error"
+        }
+    })})
 
 
 @app.get("/api/v1/probar-whatsapp", response_class=HTMLResponse)
@@ -851,10 +886,10 @@ def enviar_lote_email(request: Request, db: Session = Depends(get_db)):
         configs = {c.clave: c.valor for c in db.query(Configuracion).all()}
         asunto = plantilla.asunto.format(periodo=factura.periodo) if plantilla else f"Factura {factura.periodo}"
         cuerpo = plantilla.cuerpo.format(nombre=colab.nombre, periodo=factura.periodo, monto=factura.monto) if plantilla else ""
-        pdf_path = Path(factura.ruta_pdf)
+        pdf_path = Path(factura.ruta_pdf) if factura.ruta_pdf else None
         r = enviar_email(
             para=colab.email, asunto=asunto, cuerpo=cuerpo,
-            adjunto_pdf=pdf_path if pdf_path.exists() else None,
+            adjunto_pdf=pdf_path if (pdf_path and pdf_path.exists()) else None,
             smtp_user=configs.get("email_sender"),
             smtp_password=configs.get("gmail_app_password"),
         )

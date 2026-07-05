@@ -44,6 +44,7 @@ services:
       EMPRESA_NOMBRE: "${EMPRESA_NOMBRE:-ARGUS}"
     volumes:
       - argus_data:/app/data
+      - almacen_pdfs:/app/almacen_pdfs
       - ./data/pdfs_entrada:/app/pdfs_entrada
       - ./data/pdfs_procesados:/app/pdfs_procesados
     depends_on:
@@ -115,6 +116,7 @@ services:
 
 volumes:
   argus_data:
+  almacen_pdfs:
   argus_pg:
   evolution_instances:
   evolution_pg:
