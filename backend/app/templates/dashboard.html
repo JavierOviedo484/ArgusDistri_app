@@ -16,7 +16,7 @@
                 extend: {
                     fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] },
                     colors: {
-                        brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a' },
+                        brand: { 50: '#e8f0fe', 100: '#c7d9fb', 200: '#8fb3f6', 300: '#4d8aef', 400: '#1a5cd4', 500: '#0145bc', 600: '#013699', 700: '#012a7a', 800: '#041d52', 900: '#04152d' },
                     }
                 }
             }
@@ -30,7 +30,7 @@
         .sidebar-nav { flex: 1; padding: 0.75rem 0.5rem; overflow-y: auto; }
         .nav-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; border-radius: 0.5rem; color: #334155; font-size: 0.9375rem; font-weight: 600; text-decoration: none; transition: all 0.15s ease; cursor: pointer; }
         .nav-link:hover { background: #f1f5f9; color: #0f172a; }
-        .nav-link.active { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; font-weight: 700; }
+        .nav-link.active { background: #e8f0fe; color: #0145bc; border: 1px solid #8fb3f6; font-weight: 700; }
         .nav-link .nav-icon { font-size: 1.3rem; width: 2rem; text-align: center; }
         .sidebar-footer { padding: 0.75rem; border-top: 1px solid #e2e8f0; }
         .main-area { margin-left: 280px; min-height: 100vh; padding: 2rem 2.5rem; background: #f8fafc; }
@@ -39,15 +39,15 @@
         .card-hover { transition: all 0.15s ease; }
         .card-hover:hover { border-color: #94a3b8; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .btn { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.8125rem; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s ease; font-family: inherit; }
-        .btn-primary { background: #2563eb; color: white; }
-        .btn-primary:hover { background: #1d4ed8; box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
+        .btn-primary { background: #0145bc; color: white; }
+        .btn-primary:hover { background: #013699; box-shadow: 0 2px 8px rgba(1,69,188,0.25); }
         .btn-danger { background: #dc2626; color: white; }
         .btn-danger:hover { background: #b91c1c; }
         .btn-sm { padding: 0.4rem 0.75rem; font-size: 0.75rem; }
         .btn-ghost { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
         .btn-ghost:hover { background: #f1f5f9; color: #0f172a; }
         .input { background: #ffffff; border: 1px solid #b0b8c4; border-radius: 0.5rem; padding: 0.5rem 0.75rem; color: #0f172a; font-size: 0.875rem; outline: none; width: 100%; transition: border 0.15s; font-family: inherit; }
-        .input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+        .input:focus { border-color: #0145bc; box-shadow: 0 0 0 3px rgba(1,69,188,0.12); }
         .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -59,7 +59,7 @@
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-brand">
-            <img src="/static/logo.svg" alt="Argus" style="height:120px;width:auto;display:block;margin:0 auto;">
+            <img src="/static/logo-argus.svg" alt="ARGUS" style="height:100px;width:auto;display:block;margin:0 auto;">
         </div>
 
         <nav class="sidebar-nav">
@@ -86,6 +86,11 @@
         </nav>
 
         <div class="sidebar-footer">
+            <form method="POST" action="/logout" class="mb-2">
+                <button type="submit" class="btn btn-ghost btn-sm w-full justify-center" style="color:#94a3b8;">
+                    🔒 Cerrar sesión
+                </button>
+            </form>
             <div id="status-cards" class="space-y-1.5 text-xs"
                  hx-get="/status-cards" hx-trigger="load, every 30s" hx-swap="innerHTML">
                 <div class="animate-pulse text-slate-400 text-center py-2 text-[11px]">Cargando...</div>

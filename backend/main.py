@@ -4,12 +4,17 @@ Correr con: uvicorn main:app --reload
 """
 
 import sys
+import os
+import secrets
+import hashlib
+import time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fastapi import FastAPI, Request, Depends, Form, HTTPException
+from fastapi import FastAPI, Request, Depends, Form, HTTPException, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 from jinja2 import Environment, FileSystemLoader
 
@@ -18,6 +23,24 @@ from app.api.v1 import router as api_router
 from app.schemas import ColaboradorCreate
 
 app = FastAPI(title="Argus · Distribuidor de Documentos", version="1.0.0")
+
+# ─── Sesión simple (en memoria) ────────────────────────────
+SESSION_TOKENS: dict[str, float] = {}  # token -> expires_at
+SESSION_DURATION = 86400  # 24 horas
+
+def _make_session_token() -> str:
+    return secrets.token_hex(32)
+
+def _session_valid(token: str) -> bool:
+    exp = SESSION_TOKENS.get(token, 0)
+    return exp > time.time()
+
+# ─── Limpieza de sesiones expiradas ────────────────────────
+def _clean_sessions():
+    now = time.time()
+    expired = [k for k, v in SESSION_TOKENS.items() if v <= now]
+    for k in expired:
+        del SESSION_TOKENS[k]
 
 BASE_DIR = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "static"
@@ -29,11 +52,11 @@ STATIC_DIR.mkdir(exist_ok=True)
 # Jinja2 directo
 jinja_env = Environment(
     loader=FileSystemLoader(str(TEMPLATES_DIR)),
-    autoescape=False,
+    autoescape=True,
 )
 jinja_env_partials = Environment(
     loader=FileSystemLoader(str(PARTIALS_DIR)),
-    autoescape=False,
+    autoescape=True,
 )
 
 def render(name: str, context: dict) -> HTMLResponse:
@@ -58,6 +81,33 @@ def page(content_html: str, request: Request) -> HTMLResponse:
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.include_router(api_router, prefix="/api/v1")
+
+# ─── Autenticación por formulario ──────────────────────────
+ARGUS_USERNAME = os.getenv("ARGUS_USERNAME", "admin")
+ARGUS_PASSWORD = os.getenv("ARGUS_PASSWORD", "argus2026")
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """Exige login vía cookie de sesión si ARGUS_USERNAME/PASSWORD están configurados."""
+    if not ARGUS_USERNAME or not ARGUS_PASSWORD:
+        return await call_next(request)
+
+    # Saltos: login, estáticos
+    if request.url.path in ("/login",):
+        return await call_next(request)
+    if request.url.path.startswith("/static/"):
+        return await call_next(request)
+    if request.url.path == "/favicon.ico":
+        return await call_next(request)
+
+    # Validar cookie de sesión
+    sess_token = request.cookies.get("argus_session", "")
+    if sess_token and _session_valid(sess_token):
+        return await call_next(request)
+
+    # Redirigir al login
+    return RedirectResponse(url="/login", status_code=303)
 
 
 @app.on_event("startup")
@@ -262,6 +312,7 @@ def _render_resultados(request: Request, db: Session) -> HTMLResponse:
 
         facturas.append({
             "id": fact.id,
+            "colaborador_id": fact.colaborador_id or "",
             "colaborador_nombre": colab.nombre if colab else "(sin colaborador)",
             "archivo": fact.archivo_original,
             "periodo": fact.periodo,
@@ -353,6 +404,75 @@ def escaneo_html(
             {"archivo": r.get("archivo", "?"),
              "error": (r.get("extraido") or {}).get("error") or "error de extracción"}
             for r in errores
+        ],
+        "alertas": alertas,
+    }, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    return _render_resultados(request, db)
+
+
+# ─── ESCANEO DESDE BROWSER (carpeta nativa) ──────────────────────
+
+
+@app.post("/escanear-subir")
+async def escanear_subir(request: Request, db: Session = Depends(get_db)):
+    """Recibe PDFs subidos desde el navegador (native folder picker)."""
+    import time as _time
+    import json as _json
+    import tempfile
+    from datetime import datetime
+    from app.services.matcher import Matcher
+    from fastapi import UploadFile
+
+    form = await request.form()
+    files: list[UploadFile] = [v for v in form.values() if isinstance(v, UploadFile) and v.filename]
+    if not files:
+        return HTMLResponse("<div class='text-red-400 text-sm p-4'>No se recibieron archivos</div>")
+
+    # Guardar PDFs en carpeta temporal
+    temp_dir = Path(tempfile.mkdtemp(prefix="argus_upload_"))
+    for f in files:
+        contenido = await f.read()
+        nombre_limpio = (f.filename or "file.pdf").split("/")[-1]
+        if nombre_limpio.lower().endswith(".pdf"):
+            (temp_dir / nombre_limpio).write_bytes(contenido)
+
+    t0 = _time.time()
+    matcher = Matcher(temp_dir, db)
+    resultados = matcher.escanear()
+    tiempo_total = round(_time.time() - t0, 2)
+
+    sin_dueno = [r.dict() for r in resultados if r.estado == "sin_dueño"]
+    errores_pdf = [r.dict() for r in resultados if r.estado == "error_extraccion"]
+    alertas = []
+    for r in resultados:
+        for a in r.alertas:
+            alertas.append(a)
+    for r in resultados:
+        if r.colaborador and not r.colaborador.telefono:
+            alertas.append(f"⚠️ Sin teléfono registrado: {r.colaborador.nombre}")
+
+    tiempo_por_pdf = round(tiempo_total / len(resultados), 2) if resultados else 0
+
+    carpeta_nombre = (form.get("carpeta_nombre") or temp_dir.name).strip()
+
+    # Persistir metadatos
+    ULTIMO_ESCANEO_JSON.parent.mkdir(parents=True, exist_ok=True)
+    ULTIMO_ESCANEO_JSON.write_text(_json.dumps({
+        "carpeta": str(temp_dir) + " (subido desde PC)",
+        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "total": len(resultados),
+        "tiempo_total": tiempo_total,
+        "tiempo_por_pdf": tiempo_por_pdf,
+        "sin_dueno": [
+            {"archivo": r.get("archivo", "?"),
+             "nombre_extraido": (r.get("extraido") or {}).get("nombre_colaborador") or ""}
+            for r in sin_dueno
+        ],
+        "errores": [
+            {"archivo": r.get("archivo", "?"),
+             "error": (r.get("extraido") or {}).get("error") or "error de extracción"}
+            for r in errores_pdf
         ],
         "alertas": alertas,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -983,3 +1103,52 @@ def registrar_colaborador_desde_preview(
         </button>
     </div>
     """)
+
+
+# ─── Login / Logout ────────────────────────────────────────────
+
+
+@app.get("/login", response_class=HTMLResponse)
+def pagina_login(request: Request, error: str = ""):
+    """Muestra el formulario de inicio de sesión."""
+    sess_token = request.cookies.get("argus_session", "")
+    if sess_token and _session_valid(sess_token):
+        return RedirectResponse(url="/", status_code=303)
+    t = jinja_env.get_template("login.html")
+    return HTMLResponse(content=t.render({"error": error}))
+
+
+@app.post("/login")
+async def procesar_login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+):
+    """Valida credenciales y crea sesión."""
+    if not (secrets.compare_digest(username, ARGUS_USERNAME)
+            and secrets.compare_digest(password, ARGUS_PASSWORD)):
+        return RedirectResponse(
+            url="/login?error=Usuario+o+contrase%C3%B1a+incorrectos",
+            status_code=303,
+        )
+    token = _make_session_token()
+    SESSION_TOKENS[token] = time.time() + SESSION_DURATION
+    _clean_sessions()
+    resp = RedirectResponse(url="/", status_code=303)
+    resp.set_cookie(
+        key="argus_session",
+        value=token,
+        max_age=SESSION_DURATION,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+    )
+    return resp
+
+
+@app.post("/logout")
+async def cerrar_sesion():
+    """Elimina la sesión y redirige al login."""
+    resp = RedirectResponse(url="/login", status_code=303)
+    resp.delete_cookie(key="argus_session", path="/")
+    return resp

@@ -1,0 +1,124 @@
+# ─────────────────────────────────────────────────────────────
+# ARGUS — Stack completo
+#
+# Servicios:
+#   argus-app    → Dashboard (FastAPI :8000)
+#   argus-evo    → Evolution API WhatsApp (:8080)
+#   argus-db     → PostgreSQL (datos de ARGUS)
+#   argus-evo-db → PostgreSQL (datos de Evolution)
+#
+# Encender:   docker compose up -d
+# Apagar:     docker compose down
+# Ver logs:   docker compose logs -f argus-app
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ─── ARGUS Dashboard ─────────────────────────────────────
+  argus-app:
+    build: .
+    container_name: argus-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Base de datos de ARGUS — por defecto SQLite (archivo local),
+      # pero para producción cambiar a PostgreSQL:
+      # DATABASE_URL=postgresql://argus:${ARGUS_DB_PASSWORD}@argus-db:5432/argus
+      DATABASE_URL: "sqlite:///data/argus.db"
+
+      # Configuración de Evolution API (se sobreescribe desde .env)
+      WHATSAPP_API_URL: "${WHATSAPP_API_URL:-http://argus-evo:8080}"
+      WHATSAPP_API_KEY: "${WHATSAPP_API_KEY:-argus-whatsapp-2026}"
+      WHATSAPP_INSTANCE: "${WHATSAPP_INSTANCE:-argus}"
+
+      # Credenciales SMTP (desde .env)
+      EMAIL_SENDER: "${EMAIL_SENDER:-}"
+      GMAIL_APP_PASSWORD: "${GMAIL_APP_PASSWORD:-}"
+
+      # Autenticación del dashboard
+      ARGUS_USERNAME: "${ARGUS_USERNAME:-admin}"
+      ARGUS_PASSWORD: "${ARGUS_PASSWORD:-argus2026}"
+
+      # Empresa
+      EMPRESA_NOMBRE: "${EMPRESA_NOMBRE:-ARGUS}"
+    volumes:
+      - argus_data:/app/data
+      - ./data/pdfs_entrada:/app/pdfs_entrada
+      - ./data/pdfs_procesados:/app/pdfs_procesados
+    depends_on:
+      argus-db:
+        condition: service_started
+    networks:
+      - argus-net
+
+  # ─── ARGUS PostgreSQL (opcional — datos del dashboard) ──
+  argus-db:
+    image: postgres:15-alpine
+    container_name: argus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: "${ARGUS_DB_PASSWORD:-argus_secret_2026}"
+      POSTGRES_DB: argus
+    volumes:
+      - argus_pg:/var/lib/postgresql/data
+    networks:
+      - argus-net
+
+  # ─── Evolution API (WhatsApp) ────────────────────────────
+  argus-evo:
+    image: evoapicloud/evolution-api:v2.3.7
+    container_name: argus-evo
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - AUTHENTICATION_API_KEY=${WHATSAPP_API_KEY:-argus-whatsapp-2026}
+      - SERVER_URL=http://localhost:8080
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:${EVO_DB_PASSWORD:-evolution_pass_2026}@argus-evo-db:5432/evolution?schema=public
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=false
+      - DATABASE_SAVE_MESSAGE_UPDATE=false
+      - DATABASE_SAVE_DATA_CONTACTS=false
+      - DATABASE_SAVE_DATA_CHATS=false
+      - CACHE_REDIS_ENABLED=false
+      - CACHE_LOCAL_ENABLED=true
+      - CONFIG_SESSION_PHONE_CLIENT=ARGUS
+      - CONFIG_SESSION_PHONE_NAME=Chrome
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1042620056
+      - QRCODE_LIMIT=30
+      - LOG_LEVEL=ERROR
+      - LANGUAGE=es
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      - argus-evo-db
+    networks:
+      - argus-net
+
+  # ─── Evolution PostgreSQL ────────────────────────────────
+  argus-evo-db:
+    image: postgres:15-alpine
+    container_name: argus-evo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: "${EVO_DB_PASSWORD:-evolution_pass_2026}"
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution_pg:/var/lib/postgresql/data
+    networks:
+      - argus-net
+
+volumes:
+  argus_data:
+  argus_pg:
+  evolution_instances:
+  evolution_pg:
+
+networks:
+  argus-net:
+    driver: bridge

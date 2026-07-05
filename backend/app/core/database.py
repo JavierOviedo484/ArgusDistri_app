@@ -18,6 +18,11 @@ DATABASE_URL = os.getenv(
     f"sqlite:///{DATA_DIR / 'distribuidor.db'}"
 )
 
+# En producción (Docker), si DATABASE_URL contiene postgres, usamos psycopg2
+if DATABASE_URL and DATABASE_URL.startswith("postgresql"):
+    # forzar uso de psycopg2 si no está, la app igual fallará y mostrará error claro
+    pass
+
 engine = create_engine(
     DATABASE_URL,
     echo=False,

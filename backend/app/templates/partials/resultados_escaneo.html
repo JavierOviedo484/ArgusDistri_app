@@ -62,64 +62,93 @@
     {% if facturas %}
     <div id="lista-facturas">
         <h3 class="text-sm font-bold text-slate-700 mb-2">📋 Facturas ({{ facturas|length }})</h3>
-        <div class="space-y-2">
-            {% for f in facturas %}
-            <div class="card card-hover">
-                <div class="flex items-center justify-between gap-3">
+        <div class="space-y-3">
+            {% for grupo in facturas|groupby('colaborador_nombre') %}
+            {% set nombre = grupo.grouper %}
+            {% set cols = grupo.list %}
+            {% set f0 = cols[0] %}
+            <!-- Cabecera del colaborador -->
+            <div class="card" style="background:#f1f5f9;border-color:#cbd5e1;">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
                     <div class="flex-1 min-w-0">
-                        <div class="text-sm font-semibold" style="color:#059669;">{{ f.colaborador_nombre }}</div>
-                        <div class="text-xs text-slate-500 mt-0.5">
-                            {{ f.archivo }} · {{ f.periodo }} · <span class="font-semibold" style="color:#2563eb;">${{ f.monto }}</span>
-                        </div>
-                        <div class="text-[11px] mt-1 flex gap-3 flex-wrap">
-                            <span style="color:{{ '#2563eb' if f.email else '#d97706' }};">✉️ {{ f.email or 'sin email' }}</span>
-                            <span style="color:{{ '#059669' if f.telefono else '#d97706' }};">📱 {{ f.telefono or 'sin teléfono' }}</span>
-                        </div>
-                        <!-- Checks de estado por canal -->
-                        <div class="text-[11px] mt-1.5 flex gap-1.5 flex-wrap">
-                            {% for icono, enviado, error, dest in [
-                                ('📧', f.enviado_email, f.error_email, f.email),
-                                ('💬', f.enviado_whatsapp, f.error_whatsapp, f.telefono),
-                                ('📨', f.enviado_sms, f.error_sms, f.telefono),
-                            ] %}
-                            {% if enviado %}
-                            <span class="px-1.5 py-0.5 rounded font-bold" style="background:#d1fae5;color:#047857;">{{ icono }} ✓ enviado</span>
-                            {% elif error %}
-                            <span class="px-1.5 py-0.5 rounded font-bold cursor-help" style="background:#fee2e2;color:#b91c1c;"
-                                  title="{{ error|e }}">{{ icono }} ✗ falló ⓘ</span>
-                            {% elif dest %}
-                            <span class="px-1.5 py-0.5 rounded" style="background:#f1f5f9;color:#94a3b8;">{{ icono }} pendiente</span>
-                            {% else %}
-                            <span class="px-1.5 py-0.5 rounded" style="background:#fef3c7;color:#92400e;">{{ icono }} sin datos</span>
-                            {% endif %}
-                            {% endfor %}
+                        <div class="text-sm font-bold text-slate-800">{{ nombre }}</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">
+                            {% if f0.email %}<span>✉️ {{ f0.email }}</span>{% endif %}
+                            {% if f0.telefono %}<span class="ml-3">📱 {{ f0.telefono }}</span>{% endif %}
+                            <span class="ml-3 text-slate-400">{{ cols|length }} factura(s)</span>
                         </div>
                     </div>
-                    <div class="flex gap-1.5 shrink-0 flex-wrap justify-end items-center" style="max-width:250px;">
-                        <button onclick="abrirPreview({{ f.id }})" class="btn btn-ghost btn-sm">👁️ Ver</button>
-                        {% if not f.enviado_email %}
-                        <button hx-post="/api/v1/enviar/email/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
-                                hx-confirm="¿Enviar esta factura por EMAIL a {{ f.email }}?"
-                                class="btn btn-sm" title="Enviar por email"
-                                style="{% if f.email %}background:#2563eb;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
-                                {% if not f.email %}disabled{% endif %}>📧</button>
+                    <div class="flex gap-1.5 flex-wrap shrink-0">
+                        {% set enviados_email = cols|selectattr('enviado_email','equalto',True)|list %}
+                        {% set enviados_wp = cols|selectattr('enviado_whatsapp','equalto',True)|list %}
+                        {% set enviados_sms = cols|selectattr('enviado_sms','equalto',True)|list %}
+                        {% if enviados_email %}
+                        <span class="text-[11px] px-2 py-0.5 rounded font-semibold" style="background:#dbeafe;color:#1e40af;"
+                              title="Enviados por email">📧 {{ enviados_email|length }}</span>
                         {% endif %}
-                        {% if not f.enviado_whatsapp %}
-                        <button hx-post="/api/v1/enviar/whatsapp/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
-                                hx-confirm="¿Enviar esta factura por WHATSAPP a {{ f.telefono }}?"
-                                class="btn btn-sm" title="Enviar por WhatsApp"
-                                style="{% if f.telefono %}background:#059669;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
-                                {% if not f.telefono %}disabled{% endif %}>💬</button>
+                        {% if enviados_wp %}
+                        <span class="text-[11px] px-2 py-0.5 rounded font-semibold" style="background:#d1fae5;color:#065f46;"
+                              title="Enviados por WhatsApp">💬 {{ enviados_wp|length }}</span>
                         {% endif %}
-                        {% if not f.enviado_sms %}
-                        <button hx-post="/api/v1/enviar/sms/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
-                                hx-confirm="¿Enviar la notificación por SMS a {{ f.telefono }}?"
-                                class="btn btn-sm" title="Enviar por SMS"
-                                style="{% if f.telefono %}background:#6d28d9;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
-                                {% if not f.telefono %}disabled{% endif %}>📨</button>
+                        {% if enviados_sms %}
+                        <span class="text-[11px] px-2 py-0.5 rounded font-semibold" style="background:#e5e4f0;color:#5b21b6;"
+                              title="Enviados por SMS">📨 {{ enviados_sms|length }}</span>
                         {% endif %}
                     </div>
                 </div>
+            </div>
+            <!-- Facturas individuales de este colaborador -->
+            <div class="space-y-1.5 ml-2">
+                {% for f in cols %}
+                <div class="card card-hover">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs text-slate-500 mt-0.5">
+                                {{ f.archivo }} · {{ f.periodo }} · <span class="font-semibold" style="color:#2563eb;">${{ f.monto }}</span>
+                            </div>
+                            <div class="text-[11px] mt-1.5 flex gap-1.5 flex-wrap">
+                                {% for icono, enviado, error, dest in [
+                                    ('📧', f.enviado_email, f.error_email, f.email),
+                                    ('💬', f.enviado_whatsapp, f.error_whatsapp, f.telefono),
+                                    ('📨', f.enviado_sms, f.error_sms, f.telefono),
+                                ] %}
+                                {% if enviado %}
+                                <span class="px-1.5 py-0.5 rounded font-bold" style="background:#d1fae5;color:#047857;">{{ icono }} ✓</span>
+                                {% elif error %}
+                                <span class="px-1.5 py-0.5 rounded font-bold cursor-help" style="background:#fee2e2;color:#b91c1c;"
+                                      title="{{ error|e }}">{{ icono }} ✗ ⓘ</span>
+                                {% elif dest %}
+                                <span class="px-1.5 py-0.5 rounded" style="background:#f1f5f9;color:#94a3b8;">{{ icono }} pendiente</span>
+                                {% else %}
+                                <span class="px-1.5 py-0.5 rounded" style="background:#fef3c7;color:#92400e;">{{ icono }} sin datos</span>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="flex gap-1 shrink-0">
+                            <button onclick="abrirPreview({{ f.id }})" class="btn btn-ghost btn-sm">👁️ Ver</button>
+                            {% if not f.enviado_email %}
+                            <button hx-post="/api/v1/enviar/email/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
+                                    hx-confirm="¿Enviar por EMAIL a {{ f.email }}?"
+                                    class="btn btn-sm" style="{% if f.email %}background:#2563eb;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
+                                    {% if not f.email %}disabled{% endif %}>📧</button>
+                            {% endif %}
+                            {% if not f.enviado_whatsapp %}
+                            <button hx-post="/api/v1/enviar/whatsapp/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
+                                    hx-confirm="¿Enviar por WHATSAPP a {{ f.telefono }}?"
+                                    class="btn btn-sm" style="{% if f.telefono %}background:#059669;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
+                                    {% if not f.telefono %}disabled{% endif %}>💬</button>
+                            {% endif %}
+                            {% if not f.enviado_sms %}
+                            <button hx-post="/api/v1/enviar/sms/{{ f.id }}" hx-target="#resultado-envio" hx-swap="innerHTML"
+                                    hx-confirm="¿Enviar SMS a {{ f.telefono }}?"
+                                    class="btn btn-sm" style="{% if f.telefono %}background:#6d28d9;color:white;{% else %}background:#e2e8f0;color:#94a3b8;{% endif %}"
+                                    {% if not f.telefono %}disabled{% endif %}>📨</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
             {% endfor %}
         </div>

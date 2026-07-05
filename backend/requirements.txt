@@ -1,4 +1,5 @@
 fastapi==0.139.0
+jinja2>=3.1,<4
 uvicorn[standard]==0.49.0
 sqlalchemy==2.0.51
 pydantic==2.13.4
@@ -8,3 +9,4 @@ fpdf2==2.8.7
 pymupdf==1.28.0        # fitz — extractor PDF
 python-dotenv==1.2.2
 aiosqlite==0.22.1
+psycopg2-binary>=2.9,<3

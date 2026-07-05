@@ -6,3 +6,5 @@ data/db/*.db-shm
 data/db/*.db-wal
 data/servidor.log
 data/ultimo_escaneo.json
+.env
+**/__pycache__/

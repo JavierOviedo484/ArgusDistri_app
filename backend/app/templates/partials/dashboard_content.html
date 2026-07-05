@@ -2,7 +2,7 @@
     <!-- Marca ARGUS arriba-centro -->
     <div class="text-center pt-4 pb-2">
         <div style="font-size:3rem;font-weight:800;color:#0f172a;letter-spacing:-0.03em;line-height:1;">
-            ARG<span style="color:#2563eb;">US</span>
+            ARG<span style="color:#0145bc;">US</span>
         </div>
         <div style="font-size:0.95rem;color:#475569;font-weight:600;letter-spacing:0.02em;margin-top:0.35rem;">
             Distribuidor de documentos
@@ -25,9 +25,18 @@
         <div class="flex items-end gap-3">
             <div class="flex-1">
                 <label class="text-xs text-slate-500 font-medium block mb-1.5">📂 Carpeta de origen (PDFs)</label>
-                <input id="carpeta-input" name="carpeta" type="text"
-                       value="/mnt/c/Users/javie/Desktop/AUTOM/Correos/facturas"
-                       class="input font-mono text-xs">
+                <div class="flex gap-2 items-center">
+                    <input id="carpeta-input" name="carpeta" type="text"
+                           value="/mnt/c/Users/javie/Desktop/AUTOM/Correos/facturas"
+                           class="input font-mono text-xs flex-1"
+                           placeholder="Escribe la ruta o haz clic en Browse PC">
+                    <input type="file" id="folder-picker" webkitdirectory multiple accept=".pdf"
+                           style="display:none" onchange="uploadFolder(this)">
+                    <button onclick="document.getElementById('folder-picker').click()"
+                            class="btn btn-sm btn-ghost whitespace-nowrap" type="button">
+                        📁 Browse PC
+                    </button>
+                </div>
             </div>
             <button hx-post="/escaneo-html" hx-include="#carpeta-input" hx-target="#resultados"
                     hx-swap="innerHTML" hx-indicator="#spinner"
@@ -35,13 +44,13 @@
                 🔍 Escanear
             </button>
         </div>
-        <p class="text-[10px] text-slate-400 mt-2">Ruta absoluta en WSL — ej: /mnt/c/Users/... o data/pdfs_entrada</p>
+        <p class="text-[10px] text-slate-400 mt-2">Ruta absoluta WSL (ej: /mnt/c/Users/...) o <strong>Browse PC</strong> para elegir carpeta con el explorador de Windows</p>
     </div>
 
     <!-- Acciones masivas -->
     <div id="acciones-masivas" class="hidden flex gap-2 items-center flex-wrap">
         <button hx-get="/resumen-envio/email" hx-target="#panel-verificacion" hx-swap="innerHTML"
-                class="btn btn-sm" style="background:#2563eb;color:white;">
+                class="btn btn-sm" style="background:#0145bc;color:white;">
             📧 Enviar todo por Email
         </button>
         <button hx-get="/resumen-envio/whatsapp" hx-target="#panel-verificacion" hx-swap="innerHTML"
@@ -58,8 +67,7 @@
     <div id="panel-verificacion"></div>
     <div id="resultado-envio"></div>
 
-    <!-- Resultados: se cargan de la BD al entrar (no se pierden al navegar)
-         y se refrescan solos tras cada envío (evento refrescarFacturas) -->
+    <!-- Resultados -->
     <div id="resultados" hx-get="/facturas-html" hx-trigger="load, refrescarFacturas from:body"
          hx-swap="innerHTML">
         <div class="text-center py-16">
@@ -70,7 +78,7 @@
     <!-- Spinner -->
     <div id="spinner" class="htmx-indicator text-center py-6 hidden">
         <div class="inline-flex items-center gap-3">
-            <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg class="animate-spin h-5 w-5 text-[#0145bc]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -82,7 +90,6 @@
 <script>
 document.body.addEventListener('htmx:afterSwap', function(evt) {
     if (evt.detail.target.id === 'resultados') {
-        // Los botones de envío masivo solo se muestran si hay facturas
         const m = document.getElementById('acciones-masivas');
         if (m) m.classList.toggle('hidden', !document.getElementById('lista-facturas'));
     }
@@ -91,5 +98,38 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
 function borrarTodo() {
     if (!confirm('⚠️ Esto borrará todos los colaboradores, facturas y registros.\nLos PDFs de entrada NO se tocan.\n\nEsta acción no se puede deshacer. ¿Continuar?')) return;
     htmx.ajax('POST', '/borrar-todo', { target: '#resultado-envio', swap: 'innerHTML' });
+}
+
+function uploadFolder(input) {
+    if (!input.files || input.files.length === 0) return;
+    const pdfs = Array.from(input.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (pdfs.length === 0) {
+        alert('No se encontraron archivos PDF en la carpeta seleccionada.');
+        return;
+    }
+    const folderName = pdfs[0].webkitRelativePath.split('/')[0];
+    const inputEl = document.getElementById('carpeta-input');
+    inputEl.value = '📁 ' + folderName + ' (' + pdfs.length + ' PDFs)';
+
+    const formData = new FormData();
+    formData.append('carpeta_nombre', folderName);
+    for (const pdf of pdfs) {
+        formData.append('pdfs', pdf, pdf.webkitRelativePath);
+    }
+
+    const spinner = document.getElementById('spinner');
+    if (spinner) spinner.classList.remove('hidden');
+
+    fetch('/escanear-subir', { method: 'POST', body: formData })
+        .then(r => r.text())
+        .then(html => {
+            document.getElementById('resultados').innerHTML = html;
+            input.value = '';
+            if (spinner) spinner.classList.add('hidden');
+        })
+        .catch(e => {
+            alert('Error al subir archivos: ' + e.message);
+            if (spinner) spinner.classList.add('hidden');
+        });
 }
 </script>
