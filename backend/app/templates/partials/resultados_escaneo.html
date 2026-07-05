@@ -9,17 +9,6 @@
 </div>
 {% endif %}
 
-{% if alertas %}
-<div class="card mb-4" style="background:#fefce8;border-color:#fde68a;">
-    <div class="text-sm font-bold" style="color:#a16207;">⚠️ Alertas</div>
-    <ul class="mt-1.5 space-y-0.5">
-        {% for a in alertas %}
-        <li class="text-xs" style="color:#713f12;">· {{ a }}</li>
-        {% endfor %}
-    </ul>
-</div>
-{% endif %}
-
 {% if facturas %}
 <div class="card p-0 overflow-hidden">
     <table class="w-full text-sm">
@@ -39,7 +28,10 @@
             {% for f in facturas %}
             <tr class="border-t border-gray-100 hover:bg-gray-50/60" data-factura-id="{{ f.id }}">
                 <td class="px-3 py-2.5">
-                    <div class="font-semibold">{{ f.colaborador_nombre }}</div>
+                    <div class="font-semibold">{{ f.colaborador_nombre }}
+                        <button onclick="abrirEditColab('{{ f.colaborador_id }}','{{ f.colaborador_nombre|e }}','{{ (f.email or '')|e }}','{{ (f.telefono or '')|e }}')"
+                                class="text-xs ml-1" style="color:#94a3b8;cursor:pointer;" title="Editar datos del colaborador">✏️</button>
+                    </div>
                     <div class="text-xs" style="color:#6b7280;">{{ f.colaborador_id }}</div>
                 </td>
                 <td class="px-3 py-2.5">
@@ -138,3 +130,62 @@
     >📨 Enviar todo por SMS</button>
 </div>
 {% endif %}
+
+{% if alertas %}
+<div class="card mb-4" style="background:#fefce8;border-color:#fde68a;">
+    <div class="text-sm font-bold" style="color:#a16207;">⚠️ Alertas</div>
+    <ul class="mt-1.5 space-y-0.5">
+        {% for a in alertas %}
+        <li class="text-xs" style="color:#713f12;">· {{ a }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- Modal editar colaborador -->
+<div id="modal-edit-colab" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+     style="background:rgba(0,0,0,0.4);">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl border border-slate-200" style="margin:1rem;">
+        <h3 class="text-lg font-bold text-slate-900 mb-4">✏️ Editar colaborador</h3>
+        <form id="form-edit-colab" hx-post="/colaboradores/guardar" hx-ext="json-enc"
+              hx-on::after-request="if(event.detail.successful) cerrarEditColab()">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-medium text-slate-500 block mb-1">RUC / Cédula</label>
+                    <input id="edit-colab-id" name="identificador" readonly required class="input" style="background:#f1f5f9;">
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-slate-500 block mb-1">Nombre</label>
+                    <input id="edit-colab-nombre" name="nombre" required class="input">
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-slate-500 block mb-1">Email</label>
+                    <input id="edit-colab-email" name="email" type="email" class="input">
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-slate-500 block mb-1">Teléfono</label>
+                    <input id="edit-colab-telefono" name="telefono" class="input">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="cerrarEditColab()" class="btn btn-ghost">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function abrirEditColab(id, nombre, email, telefono) {
+    document.getElementById('edit-colab-id').value = id;
+    document.getElementById('edit-colab-nombre').value = nombre;
+    document.getElementById('edit-colab-email').value = email === 'None' ? '' : email;
+    document.getElementById('edit-colab-telefono').value = telefono === 'None' ? '' : telefono;
+    document.getElementById('modal-edit-colab').classList.remove('hidden');
+}
+function cerrarEditColab() {
+    document.getElementById('modal-edit-colab').classList.add('hidden');
+    // refrescar facturas para ver datos actualizados
+    htmx.ajax('GET', '/facturas-html', { target: '#resultados', swap: 'innerHTML' });
+}
+</script>

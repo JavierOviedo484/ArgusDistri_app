@@ -138,6 +138,17 @@ class Matcher:
                     f"Considera registrar su RUC/cédula en la ficha del colaborador."
                 )
 
+        def _coinciden(tel_bd: str, tel_pdf: str) -> bool:
+            """Compara teléfonos normalizando diferencias de formato.
+            El PDF suele traer 0982967070, la BD guarda 593982967070."""
+            import re
+            def _core(n: str) -> str:
+                n = re.sub(r'[^0-9]', '', n or '')
+                if n.startswith('593'):
+                    n = n[3:]
+                return n.lstrip('0')
+            return _core(tel_bd) == _core(tel_pdf)
+
         # Registro automático: el PDF identifica a la persona (nombre + RUC)
         # pero aún no está en la BD → se crea el colaborador con los datos
         # extraídos y la factura queda asignada en el mismo escaneo.
@@ -180,7 +191,7 @@ class Matcher:
 
             # Alertas adicionales
             if colaborador.telefono and extraido.telefono:
-                if colaborador.telefono != extraido.telefono:
+                if not _coinciden(colaborador.telefono, extraido.telefono):
                     alertas.append(
                         f"Teléfono en PDF ({extraido.telefono}) difiere del registrado "
                         f"({colaborador.telefono})"
