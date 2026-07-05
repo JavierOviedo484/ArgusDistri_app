@@ -118,28 +118,6 @@
             l.classList.toggle('active', l.getAttribute('href') === path);
         });
     })();
-
-    /* ─── Preview de factura (modal) ─── */
-    function abrirPreview(facturaId) {
-        const panel = document.getElementById('preview-panel');
-        if (!panel) return;
-        htmx.ajax('GET', '/preview-factura/' + facturaId, {
-            target: '#preview-panel',
-            swap: 'innerHTML',
-        });
-    }
-
-    /* ─── Preview de PDF sin dueño ─── */
-    function abrirSinDueno(archivo) {
-        const panel = document.getElementById('preview-panel');
-        if (!panel) return;
-        const carpeta = document.getElementById('carpeta-input')?.value || '';
-        htmx.ajax('POST', '/preview-extraccion', {
-            target: '#preview-panel',
-            swap: 'innerHTML',
-            values: { archivo: archivo, carpeta: carpeta },
-        });
-    }
     </script>
 </body>
 </html>

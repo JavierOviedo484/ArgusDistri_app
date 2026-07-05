@@ -70,16 +70,3 @@
         </div>
     </div>
 </div>
-
-<script>
-function cerrarModal() {
-    document.getElementById('modal-overlay').remove();
-}
-document.addEventListener('keydown', function onEsc(e) {
-    if (e.key === 'Escape') {
-        const m = document.getElementById('modal-overlay');
-        if (m) m.remove();
-        document.removeEventListener('keydown', onEsc);
-    }
-});
-</script>
