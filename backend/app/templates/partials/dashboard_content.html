@@ -1,4 +1,8 @@
 <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- ─── Toast flotante para feedback de envío ─── -->
+    <div id="toast-envio" class="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none" style="transition:opacity 0.3s;"></div>
+
     <!-- Marca ARGUS arriba-centro -->
     <div class="text-center pt-4 pb-2">
         <div style="font-size:3rem;font-weight:800;color:#0f172a;letter-spacing:-0.03em;line-height:1;">
@@ -155,5 +159,49 @@ function uploadFolder(input) {
         if (spinner) spinner.classList.add('hidden');
         if (btn) btn.disabled = false;
     });
+}
+
+// ─── Toast de envío: mensaje en pantalla al enviar ───
+var toastTimer = null;
+
+document.body.addEventListener('htmx:beforeRequest', function(evt) {
+    var el = evt.detail.elt;
+    if (!el || !el.getAttribute) return;
+    var hxPost = el.getAttribute('hx-post') || '';
+    var hxGet = el.getAttribute('hx-get') || '';
+    var path = hxPost || hxGet;
+    // Solo para botones de envío
+    if (!path.match(/\/api\/v1\/enviar\/|\/api\/v1\/enviar-lote\/|\/resumen-envio\//)) return;
+    mostrarToast('⏳ <strong>Espere, se está enviando…</strong>', 'bg-blue-600');
+});
+
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    var el = evt.detail.elt;
+    if (!el || !el.getAttribute) return;
+    var hxPost = el.getAttribute('hx-post') || '';
+    var hxGet = el.getAttribute('hx-get') || '';
+    var path = hxPost || hxGet;
+
+    var canal = '';
+    if (path.indexOf('email') !== -1) canal = 'Email';
+    else if (path.indexOf('whatsapp') !== -1) canal = 'WhatsApp';
+    else if (path.indexOf('sms') !== -1) canal = 'SMS';
+    if (!canal) return;
+
+    if (evt.detail.successful) {
+        mostrarToast('✅ <strong>¡' + canal + ' enviado!</strong>', 'bg-emerald-600');
+    } else {
+        mostrarToast('❌ <strong>Error al enviar por ' + canal + '</strong>', 'bg-red-600');
+    }
+});
+
+function mostrarToast(html, bgClass) {
+    var el = document.getElementById('toast-envio');
+    if (!el) return;
+    el.innerHTML = '<div class="' + bgClass + ' text-white px-6 py-3 rounded-xl shadow-2xl text-sm font-semibold animate-fade-in">' + html + '</div>';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() {
+        el.innerHTML = '';
+    }, 4500);
 }
 </script>

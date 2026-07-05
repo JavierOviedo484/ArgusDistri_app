@@ -8,6 +8,7 @@ import os
 import secrets
 import hashlib
 import time
+import shutil
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -25,6 +26,7 @@ from app.schemas import ColaboradorCreate
 app = FastAPI(title="Argus · Distribuidor de Documentos", version="1.0.0", max_body_size=100_000_000)
 
 # ─── Sesión simple (en memoria) ────────────────────────────
+ALMACEN_PDFS = Path(os.environ.get("ALMACEN_PDFS", "/app/almacen_pdfs"))
 SESSION_TOKENS: dict[str, float] = {}  # token -> expires_at
 SESSION_DURATION = 86400  # 24 horas
 
@@ -426,6 +428,7 @@ async def escanear_subir(request: Request, db: Session = Depends(get_db)):
     import tempfile
     from datetime import datetime
     from app.services.matcher import Matcher
+    from app.models.factura import Factura as FacturaModel
     from fastapi import UploadFile
 
     try:
