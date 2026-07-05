@@ -475,7 +475,7 @@ async def escanear_subir(request: Request, db: Session = Depends(get_db)):
     # Persistir metadatos
     ULTIMO_ESCANEO_JSON.parent.mkdir(parents=True, exist_ok=True)
     ULTIMO_ESCANEO_JSON.write_text(_json.dumps({
-        "carpeta": str(temp_dir) + " (subido desde PC)",
+        "carpeta": carpeta_nombre + " (subido desde PC)",
         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "total": len(resultados),
         "tiempo_total": tiempo_total,
