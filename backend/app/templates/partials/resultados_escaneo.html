@@ -68,21 +68,21 @@
                 {% if f.email and not f.enviado_email %}
                 <button hx-post="/api/v1/enviar/email/{{ f.id }}"
                         hx-target="closest .card" hx-swap="outerHTML"
-                        hx-indicator="#env-spinner"
+                        hx-on::before-request="this.disabled=true;this.innerHTML='⏳'"
                         class="btn btn-sm" style="background:#2563eb;color:white;font-size:0.75rem;padding:0.35rem 0.6rem;"
                         title="Enviar por email">📧</button>
                 {% endif %}
                 {% if f.telefono and not f.enviado_whatsapp %}
                 <button hx-post="/api/v1/enviar/whatsapp/{{ f.id }}"
                         hx-target="closest .card" hx-swap="outerHTML"
-                        hx-indicator="#env-spinner"
+                        hx-on::before-request="this.disabled=true;this.innerHTML='⏳'"
                         class="btn btn-sm" style="background:#059669;color:white;font-size:0.75rem;padding:0.35rem 0.6rem;"
                         title="Enviar por WhatsApp">💬</button>
                 {% endif %}
                 {% if f.telefono and not f.enviado_sms %}
                 <button hx-post="/api/v1/enviar/sms/{{ f.id }}"
                         hx-target="closest .card" hx-swap="outerHTML"
-                        hx-indicator="#env-spinner"
+                        hx-on::before-request="this.disabled=true;this.innerHTML='⏳'"
                         class="btn btn-sm" style="background:#7c3aed;color:white;font-size:0.75rem;padding:0.35rem 0.6rem;"
                         title="Enviar por SMS">📨</button>
                 {% endif %}
@@ -92,25 +92,18 @@
     {% endfor %}
 </div>
 
-<div id="env-spinner" class="htmx-indicator fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.3);pointer-events:none;">
-    <div class="bg-white rounded-xl p-6 shadow-xl flex items-center gap-3">
-        <svg class="animate-spin h-6 w-6 text-[#0145bc]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span class="text-sm font-medium text-slate-700">Enviando…</span>
-    </div>
-</div>
-
 <div class="mt-4 flex flex-wrap gap-2">
     <button hx-get="/resumen-envio/email" hx-target="#resultado-envio" hx-swap="innerHTML"
-            hx-indicator="#masivo-spinner"
+            hx-on::before-request="this.disabled=true;this.innerHTML='⏳ Cargando...'"
+            hx-on::after-request="if(!this.closest('body'))return;this.disabled=false;this.innerHTML='📧 Enviar todo por Email'"
             class="btn btn-sm" style="background:#2563eb;color:white;">📧 Enviar todo por Email</button>
     <button hx-get="/resumen-envio/whatsapp" hx-target="#resultado-envio" hx-swap="innerHTML"
-            hx-indicator="#masivo-spinner"
+            hx-on::before-request="this.disabled=true;this.innerHTML='⏳ Cargando...'"
+            hx-on::after-request="if(!this.closest('body'))return;this.disabled=false;this.innerHTML='💬 Enviar todo por WhatsApp'"
             class="btn btn-sm" style="background:#059669;color:white;">💬 Enviar todo por WhatsApp</button>
     <button hx-get="/resumen-envio/sms" hx-target="#resultado-envio" hx-swap="innerHTML"
-            hx-indicator="#masivo-spinner"
+            hx-on::before-request="this.disabled=true;this.innerHTML='⏳ Cargando...'"
+            hx-on::after-request="if(!this.closest('body'))return;this.disabled=false;this.innerHTML='📨 Enviar todo por SMS'"
             class="btn btn-sm" style="background:#7c3aed;color:white;">📨 Enviar todo por SMS</button>
 </div>
 <div id="masivo-spinner" class="htmx-indicator text-sm text-blue-600 font-medium mt-1" style="display:none;">⏳ Cargando resumen de envío…</div>
