@@ -166,6 +166,10 @@ class ExtractorPDF:
 
         # Buscar cada campo
         nombre = self._buscar(texto, "nombre")
+        if nombre:
+            # "Las letras van al final" — limpiar dígitos/sobrantes
+            # que las regex greedy puedan haber capturado después del nombre
+            nombre = re.sub(r'[\d\s]+$', '', nombre).strip()
         identificador = self._buscar(texto, "identificador")
         telefono = self._buscar(texto, "telefono")
         email = self._buscar(texto, "email")
@@ -220,8 +224,18 @@ class ExtractorPDF:
         return None
 
     def _limpiar_telefono(self, t: str) -> str:
-        """Limpia formato de teléfono."""
+        """Limpia formato de teléfono y normaliza a formato internacional Ecuador (+593 sin +).
+
+        Casos:
+          '0982967070'  → '593982967070'  (celular local)
+          '+593 98 296 7070' → '593982967070'
+          '593982967070' → '593982967070' (ya normalizado)
+        """
         t = re.sub(r'[^0-9]', '', t)
+        if len(t) == 10 and t.startswith("09"):
+            t = "593" + t[1:]
+        elif len(t) == 9 and t.startswith("9"):
+            t = "593" + t
         return t
 
     def _buscar(self, texto: str, campo: str) -> Optional[str]:
